@@ -22,6 +22,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Receives silent install results from PackageInstaller -->
+        <receiver
+            android:name=".util.InstallResultReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="ch.toroag.nexis.worker.INSTALL_RESULT" />
+            </intent-filter>
+        </receiver>
+
         <!-- FileProvider for APK self-update installs -->
         <provider
             android:name="androidx.core.content.FileProvider"
