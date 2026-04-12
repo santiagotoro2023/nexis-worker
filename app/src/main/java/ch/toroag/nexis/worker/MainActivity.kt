@@ -28,8 +28,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import androidx.core.content.ContextCompat
+import ch.toroag.nexis.worker.util.WakeWordService
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
@@ -229,9 +233,25 @@ private fun PermissionSetupScreen(onGrant: () -> Unit) {
 
 @Composable
 private fun NexisApp() {
+    val context       = androidx.compose.ui.platform.LocalContext.current
     val navController = rememberNavController()
-    val prefs         = PreferencesRepository.get(androidx.compose.ui.platform.LocalContext.current)
+    val prefs         = PreferencesRepository.get(context)
     val token         by prefs.token.collectAsState(initial = null)
+    val wakeEnabled   by prefs.wakeWordEnabled.collectAsState(initial = false)
+
+    // Auto-start wake word service whenever the app is open and the setting is on
+    LaunchedEffect(wakeEnabled) {
+        if (wakeEnabled && ContextCompat.checkSelfPermission(
+                context, Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            context.startForegroundService(
+                Intent(context, WakeWordService::class.java).apply {
+                    action = WakeWordService.ACTION_START
+                }
+            )
+        }
+    }
 
     val startDest = when {
         token == null        -> "loading"   // still loading from DataStore

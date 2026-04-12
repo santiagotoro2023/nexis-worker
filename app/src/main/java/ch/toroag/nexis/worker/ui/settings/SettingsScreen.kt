@@ -1,5 +1,10 @@
 package ch.toroag.nexis.worker.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,10 +15,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.ui.theme.NxBorder
 import ch.toroag.nexis.worker.ui.theme.NxFg
@@ -28,12 +35,24 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     vm: SettingsViewModel = viewModel(),
 ) {
+    val context         =  LocalContext.current
     val baseUrl         by vm.baseUrl.collectAsState()
     val certPin         by vm.certPin.collectAsState()
     val status          by vm.status.collectAsState()
     val wakeWordEnabled by vm.wakeWordEnabled.collectAsState()
 
     var reAuthPw by remember { mutableStateOf("") }
+
+    // Permission launcher for wake word (RECORD_AUDIO + POST_NOTIFICATIONS on Android 13+)
+    val wakePermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        if (results[Manifest.permission.RECORD_AUDIO] == true) {
+            vm.setWakeWordEnabled(true)
+        }
+        // POST_NOTIFICATIONS is best-effort — we proceed even if denied (service still works,
+        // but the notification won't show on Android 13+ until the user manually grants it)
+    }
 
     LaunchedEffect(status) {
         if (status != null) {
@@ -179,7 +198,26 @@ fun SettingsScreen(
                     Spacer(Modifier.width(8.dp))
                     Switch(
                         checked         = wakeWordEnabled,
-                        onCheckedChange = { vm.setWakeWordEnabled(it) },
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                vm.setWakeWordEnabled(false)
+                            } else {
+                                val audioGranted = ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (audioGranted) {
+                                    vm.setWakeWordEnabled(true)
+                                } else {
+                                    val perms = buildList {
+                                        add(Manifest.permission.RECORD_AUDIO)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            add(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    }
+                                    wakePermLauncher.launch(perms.toTypedArray())
+                                }
+                            }
+                        },
                         colors          = SwitchDefaults.colors(
                             checkedThumbColor  = NxOrange,
                             checkedTrackColor  = NxOrangeDim,
