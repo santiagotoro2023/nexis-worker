@@ -31,11 +31,9 @@ fun SettingsScreen(
     val baseUrl         by vm.baseUrl.collectAsState()
     val certPin         by vm.certPin.collectAsState()
     val status          by vm.status.collectAsState()
-    val wakeWordKey     by vm.wakeWordKey.collectAsState()
     val wakeWordEnabled by vm.wakeWordEnabled.collectAsState()
 
-    var reAuthPw       by remember { mutableStateOf("") }
-    var wakeKeyInput   by remember(wakeWordKey) { mutableStateOf(wakeWordKey) }
+    var reAuthPw by remember { mutableStateOf("") }
 
     LaunchedEffect(status) {
         if (status != null) {
@@ -163,15 +161,9 @@ fun SettingsScreen(
             // Wake word
             SettingsCard(label = "hey nexis (wake word)") {
                 Text(
-                    "always-on wake word detection -audio processed entirely on-device. access key synced automatically from the controller.",
+                    "always-on wake word detection -audio processed entirely on-device. no setup or account required.",
                     style = MaterialTheme.typography.bodySmall,
                     color = NxFg2,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (wakeWordKey.isNotEmpty()) "key: configured" else "key: not configured -set in controller status page",
-                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                    color = if (wakeWordKey.isNotEmpty()) NxOrange else NxFg2,
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(

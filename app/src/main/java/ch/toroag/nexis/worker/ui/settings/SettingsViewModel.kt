@@ -28,17 +28,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _status        = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status
 
-    private val _wakeWordKey     = MutableStateFlow("")
-    val wakeWordKey: StateFlow<String> = _wakeWordKey
-
     private val _wakeWordEnabled = MutableStateFlow(false)
     val wakeWordEnabled: StateFlow<Boolean> = _wakeWordEnabled
 
     init {
         viewModelScope.launch {
-            _baseUrl.value        = prefs.baseUrl.first()
-            _certPin.value        = CertPinStore.getPin(getApplication())
-            _wakeWordKey.value    = prefs.wakeWordKey.first()
+            _baseUrl.value         = prefs.baseUrl.first()
+            _certPin.value         = CertPinStore.getPin(getApplication())
             _wakeWordEnabled.value = prefs.wakeWordEnabled.first()
         }
     }
@@ -71,11 +67,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearStatus() { _status.value = null }
-
-    fun saveWakeWordKey(key: String) {
-        _wakeWordKey.value = key
-        viewModelScope.launch { prefs.saveWakeWordKey(key) }
-    }
 
     fun setWakeWordEnabled(on: Boolean) {
         _wakeWordEnabled.value = on

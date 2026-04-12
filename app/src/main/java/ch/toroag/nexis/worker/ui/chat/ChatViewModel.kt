@@ -66,9 +66,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun initHistory() {
         viewModelScope.launch(Dispatchers.IO) {
-            // Pull server config (Porcupine key, etc.) silently — no UI needed
-            api.fetchAndStoreConfig(baseUrl, token, prefs)
-
             val hist = api.getHistory(baseUrl, token)
             if (hist.isNotEmpty()) {
                 _messages.value = hist.mapIndexed { i, m ->

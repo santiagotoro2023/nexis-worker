@@ -69,16 +69,11 @@ Tap **Model** in the top bar. Only models installed on the controller are shown.
 
 ## Always-on wake word ("Hey Nexis")
 
-When enabled in Settings, a background service listens for the wake word using [Porcupine](https://picovoice.ai) — fully on-device, no audio ever leaves the phone.
+When enabled in Settings, a background service listens for the wake word using [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) — fully on-device, no audio ever leaves the phone.
 
-**To enable:**
-1. Set a Picovoice access key on the controller (Status page — see controller README)
-2. The app fetches the key automatically on next login
-3. Open Settings → wake word → toggle on
+**No setup required.** The detection model (~15 MB) downloads automatically on first use. No accounts, no API keys.
 
-A persistent notification appears while the service is running. When "Hey Nexis" is detected, the app opens and the mic activates automatically.
-
-> For the actual "Hey Nexis" phrase to work, a custom `.ppn` model file must be placed in `app/src/main/assets/` before building. Without it, the service starts but listens for the built-in "Porcupine" keyword as a placeholder. See the controller README for model setup details.
+Open Settings → "hey nexis" → toggle on. A persistent notification appears while the service is running. When "Hey Nexis" is detected, the app opens and the mic activates automatically.
 
 ---
 
@@ -91,7 +86,7 @@ Tap the gear icon. The settings screen scrolls if content exceeds the screen.
 | **controller** | Shows the connected server URL |
 | **certificate** | Shows the pinned TLS fingerprint. Use "forget certificate" if the server cert was regenerated — the app will re-pin on the next connection |
 | **re-authenticate** | Enter your new controller password to get a fresh token, without disconnecting |
-| **hey nexis (wake word)** | Toggle always-on wake word detection; shows key status (fetched from controller) |
+| **hey nexis (wake word)** | Toggle always-on wake word detection (no setup required) |
 | **disconnect** | Clears the saved token and returns to the Connect screen |
 
 ---

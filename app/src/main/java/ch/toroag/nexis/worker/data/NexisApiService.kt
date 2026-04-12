@@ -145,23 +145,6 @@ class NexisApiService(
         runCatching { standardClient.newCall(req).execute().close() }
     }
 
-    // ── App config ───────────────────────────────────────────────────────────
-
-    /** Fetches server config (Porcupine access key, etc.) and stores it locally. */
-    fun fetchAndStoreConfig(baseUrl: String, token: String, prefs: PreferencesRepository) {
-        val req = Request.Builder().url("$baseUrl/api/config").withBearer(token).get().build()
-        try {
-            standardClient.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return
-                val obj = org.json.JSONObject(resp.body!!.string())
-                val pk = obj.optString("porcupine_access_key", "")
-                if (pk.isNotEmpty()) {
-                    kotlinx.coroutines.runBlocking { prefs.saveWakeWordKey(pk) }
-                }
-            }
-        } catch (_: Exception) {}
-    }
-
     // ── Cross-device sync ─────────────────────────────────────────────────────
 
     data class HistoryMessage(val role: String, val content: String)
