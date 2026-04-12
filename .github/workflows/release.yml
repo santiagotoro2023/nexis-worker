@@ -24,9 +24,17 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Decode keystore
+      - name: Prepare keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/nexis-release.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/nexis-release.jks
+          else
+            # No keystore secret set — generate a temporary one for CI validation only
+            keytool -genkeypair -keystore /tmp/nexis-release.jks -storetype JKS -alias nexis -keyalg RSA -keysize 2048 -validity 1 -storepass temppass -keypass temppass -dname "CN=CI, O=nexis, C=CH" -noprompt
+            echo "KEYSTORE_PASSWORD=temppass" >> $GITHUB_ENV
+            echo "KEY_ALIAS=nexis" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=temppass" >> $GITHUB_ENV
+          fi
 
       - name: Set build timestamp
         run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
