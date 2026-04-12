@@ -40,12 +40,9 @@ jobs:
 
       - name: Download sherpa-onnx Android AAR
         run: |
-          mkdir -p app/libs /tmp/sherpa
-          curl -fL "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.10.35/sherpa-onnx-v1.10.35-android.tar.bz2" \
-            -o /tmp/sherpa.tar.bz2
-          tar xjf /tmp/sherpa.tar.bz2 -C /tmp/sherpa/
-          find /tmp/sherpa -name "*.aar" | head -1 | xargs -I{} cp {} app/libs/sherpa-onnx-android.aar
-          ls -lh app/libs/
+          mkdir -p app/libs
+          curl -fL "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.10.35/sherpa-onnx-1.10.35.aar" \
+            -o app/libs/sherpa-onnx-android.aar
 
       - name: Set build timestamp
         run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
