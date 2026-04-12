@@ -77,7 +77,7 @@ fun SettingsScreen(
             SettingsCard(label = "certificate") {
                 if (certPin != null) {
                     Text(
-                        "pinned — connection trusted",
+                        "pinned -connection trusted",
                         style = MaterialTheme.typography.bodySmall,
                         color = NxOrange,
                     )
@@ -100,13 +100,13 @@ fun SettingsScreen(
                     ) { Text("forget certificate") }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "use this if the server cert was regenerated — next connection will re-pair automatically.",
+                        "use this if the server cert was regenerated -next connection will re-pair automatically.",
                         style = MaterialTheme.typography.labelSmall,
                         color = NxFg2,
                     )
                 } else {
                     Text(
-                        "no certificate pinned — will pin on next connection.",
+                        "no certificate pinned -will pin on next connection.",
                         style = MaterialTheme.typography.bodySmall,
                         color = NxFg2,
                     )

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,25 +18,29 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ch.toroag.nexis.worker.R
 import ch.toroag.nexis.worker.ui.theme.NxBorder
+import ch.toroag.nexis.worker.ui.theme.NxBg3
 import ch.toroag.nexis.worker.ui.theme.NxDim
 import ch.toroag.nexis.worker.ui.theme.NxFg
 import ch.toroag.nexis.worker.ui.theme.NxFg2
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
-import ch.toroag.nexis.worker.ui.theme.NxBg2
-import ch.toroag.nexis.worker.ui.theme.NxBg3
+import ch.toroag.nexis.worker.util.SoundFx
 import ch.toroag.nexis.worker.util.SpeechRecognizerHelper
 import kotlinx.coroutines.launch
 
@@ -53,12 +58,11 @@ fun ChatScreen(
     val currentModel by chatVm.currentModel.collectAsState()
     val voiceEnabled by chatVm.voiceEnabled.collectAsState()
 
-    var inputText       by remember { mutableStateOf("") }
-    var showModelSheet  by remember { mutableStateOf(false) }
-    var isMicListening  by remember { mutableStateOf(false) }
+    var inputText      by remember { mutableStateOf("") }
+    var showModelSheet by remember { mutableStateOf(false) }
+    var isMicListening by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
-    val scope     = rememberCoroutineScope()
     val speech    = remember { SpeechRecognizerHelper(context) }
 
     val permLauncher = rememberLauncherForActivityResult(
@@ -73,7 +77,8 @@ fun ChatScreen(
     DisposableEffect(Unit) { onDispose { speech.destroy() } }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor      = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0),   // we control all insets manually
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -81,37 +86,42 @@ fun ChatScreen(
                     titleContentColor      = NxFg,
                     actionIconContentColor = NxFg2,
                 ),
+                windowInsets = WindowInsets.statusBars,
                 title = {
-                    Column {
-                        Text(
-                            "NeXiS",
-                            style      = MaterialTheme.typography.titleMedium,
-                            color      = NxOrange,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp,
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter      = painterResource(R.drawable.ic_nexis_logo),
+                            contentDescription = "NeXiS",
+                            colorFilter  = ColorFilter.tint(NxOrange),
+                            modifier     = Modifier.size(28.dp),
                         )
-                        if (currentModel.isNotEmpty())
+                        Spacer(Modifier.width(8.dp))
+                        Column {
                             Text(
-                                currentModel,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NxFg2,
+                                "NeXiS",
+                                style         = MaterialTheme.typography.titleMedium,
+                                color         = NxOrange,
+                                fontWeight    = FontWeight.Bold,
+                                letterSpacing = 2.sp,
                             )
+                            if (currentModel.isNotEmpty())
+                                Text(currentModel,
+                                     style = MaterialTheme.typography.labelSmall,
+                                     color = NxFg2)
+                        }
                     }
                 },
                 actions = {
+                    // Speaker icon — toggles TTS voice output from controller
                     IconButton(onClick = { chatVm.toggleVoice(!voiceEnabled) }) {
                         Icon(
-                            Icons.Default.Mic,
-                            contentDescription = "Toggle voice",
+                            if (voiceEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                            contentDescription = "Toggle voice output",
                             tint = if (voiceEnabled) NxOrange else NxFg2,
                         )
                     }
                     TextButton(onClick = { showModelSheet = true }) {
-                        Text(
-                            "Model",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = NxFg2,
-                        )
+                        Text("Model", style = MaterialTheme.typography.labelMedium, color = NxFg2)
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, "Settings", tint = NxFg2)
@@ -120,7 +130,12 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            Column {
+            // windowInsetsPadding union: when keyboard open = IME height, else = nav bar height
+            Column(
+                Modifier.windowInsetsPadding(
+                    WindowInsets.ime.union(WindowInsets.navigationBars)
+                )
+            ) {
                 if (error != null) {
                     Row(
                         Modifier
@@ -148,7 +163,6 @@ fun ChatScreen(
                 ) {
                     Row(
                         Modifier
-                            .navigationBarsPadding()
                             .padding(horizontal = 8.dp, vertical = 6.dp)
                             .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -156,31 +170,38 @@ fun ChatScreen(
                         OutlinedTextField(
                             value         = inputText,
                             onValueChange = { inputText = it },
-                            placeholder   = { Text("message nexis…", color = NxFg2) },
+                            placeholder   = { Text("message nexis...", color = NxFg2) },
                             modifier      = Modifier.weight(1f),
                             shape         = RoundedCornerShape(4.dp),
                             maxLines      = 5,
                             colors        = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor   = NxOrangeDim,
-                                unfocusedBorderColor = NxBorder,
-                                focusedTextColor     = NxFg,
-                                unfocusedTextColor   = NxFg,
-                                cursorColor          = NxOrange,
+                                focusedBorderColor      = NxOrangeDim,
+                                unfocusedBorderColor    = NxBorder,
+                                focusedTextColor        = NxFg,
+                                unfocusedTextColor      = NxFg,
+                                cursorColor             = NxOrange,
                                 focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                             ),
                             textStyle = MaterialTheme.typography.bodyMedium,
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(4.dp))
+                        // Mic button — push-to-talk voice input (phone-side STT)
                         IconButton(onClick = {
                             if (isMicListening) {
-                                speech.stopListening(); isMicListening = false
+                                SoundFx.micDeactivate()
+                                speech.stopListening()
+                                isMicListening = false
                             } else {
                                 val granted = ContextCompat.checkSelfPermission(
                                     context, Manifest.permission.RECORD_AUDIO
                                 ) == PackageManager.PERMISSION_GRANTED
-                                if (granted) startListening(speech, chatVm) { isMicListening = it }
-                                else permLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                if (granted) {
+                                    SoundFx.micActivate()
+                                    startListening(speech, chatVm) { isMicListening = it }
+                                } else {
+                                    permLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
                             }
                         }) {
                             Icon(
@@ -189,10 +210,12 @@ fun ChatScreen(
                                 tint = if (isMicListening) NxOrange else NxFg2,
                             )
                         }
+                        // Send / stop streaming
                         IconButton(onClick = {
                             if (isStreaming) chatVm.abortStreaming()
                             else if (inputText.isNotBlank()) {
-                                chatVm.sendMessage(inputText); inputText = ""
+                                chatVm.sendMessage(inputText)
+                                inputText = ""
                             }
                         }) {
                             Icon(
@@ -213,20 +236,20 @@ fun ChatScreen(
                 .background(MaterialTheme.colorScheme.background),
             state               = listState,
             contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(messages, key = { it.id }) { msg -> MessageBubble(msg) }
             if (isStreaming && messages.lastOrNull()?.content?.isEmpty() == true) {
-                item { TypingIndicator() }
+                item { TypingBubble() }
             }
         }
     }
 
     if (showModelSheet) {
         ModalBottomSheet(
-            onDismissRequest   = { showModelSheet = false },
-            containerColor     = MaterialTheme.colorScheme.surface,
-            contentColor       = NxFg,
+            onDismissRequest = { showModelSheet = false },
+            containerColor   = MaterialTheme.colorScheme.surface,
+            contentColor     = NxFg,
         ) {
             Text(
                 "select model",
@@ -242,21 +265,14 @@ fun ChatScreen(
                              style = MaterialTheme.typography.bodyMedium)
                     },
                     supportingContent = {
-                        Text(m.desc,
-                             color = NxFg2,
-                             style = MaterialTheme.typography.labelSmall)
+                        Text(m.desc, color = NxFg2, style = MaterialTheme.typography.labelSmall)
                     },
                     trailingContent   = {
                         if (m.current)
-                            Text("active",
-                                 color = NxOrange,
-                                 style = MaterialTheme.typography.labelSmall)
+                            Text("active", color = NxOrange, style = MaterialTheme.typography.labelSmall)
                     },
-                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.clickable {
-                        chatVm.selectModel(m.key)
-                        showModelSheet = false
-                    },
+                    colors   = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.clickable { chatVm.selectModel(m.key); showModelSheet = false },
                 )
                 HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
             }
@@ -264,6 +280,8 @@ fun ChatScreen(
         }
     }
 }
+
+// ── Message bubble ─────────────────────────────────────────────────────────────
 
 @Composable
 private fun MessageBubble(msg: ChatMessage) {
@@ -273,41 +291,34 @@ private fun MessageBubble(msg: ChatMessage) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         if (!isUser) {
-            // AI label
             Column(horizontalAlignment = Alignment.Start) {
                 Text(
                     "nexis",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NxOrange,
+                    style    = MaterialTheme.typography.labelSmall,
+                    color    = NxOrange,
                     modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
                 )
                 Surface(
-                    shape = RoundedCornerShape(topStart = 2.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
-                    color = NxBg3,
-                    modifier = Modifier.widthIn(max = 300.dp),
+                    shape    = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
+                    color    = NxBg3,
+                    modifier = Modifier.widthIn(max = 320.dp),
                 ) {
-                    Text(
-                        msg.content,
-                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize   = 13.sp,
-                        ),
-                        color = NxFg,
-                    )
+                    Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        RenderedMessage(msg.content)
+                    }
                 }
             }
         } else {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     "you",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NxFg2,
+                    style    = MaterialTheme.typography.labelSmall,
+                    color    = NxFg2,
                     modifier = Modifier.padding(end = 2.dp, bottom = 2.dp),
                 )
                 Surface(
-                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 2.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
-                    color = NxDim,
+                    shape    = RoundedCornerShape(8.dp, 2.dp, 8.dp, 8.dp),
+                    color    = NxDim,
                     modifier = Modifier.widthIn(max = 300.dp),
                 ) {
                     Text(
@@ -322,22 +333,29 @@ private fun MessageBubble(msg: ChatMessage) {
     }
 }
 
+// ── Typing indicator ───────────────────────────────────────────────────────────
+
 @Composable
-private fun TypingIndicator() {
+private fun TypingBubble() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-        Surface(
-            shape = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
-            color = NxBg3,
-        ) {
+        Column(horizontalAlignment = Alignment.Start) {
             Text(
-                "_ _ _",
-                Modifier.padding(12.dp, 8.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = NxOrange,
+                "nexis",
+                style    = MaterialTheme.typography.labelSmall,
+                color    = NxOrange,
+                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
             )
+            Surface(
+                shape = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
+                color = NxBg3,
+            ) {
+                TypingIndicatorDots()
+            }
         }
     }
 }
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 private fun startListening(
     speech:  SpeechRecognizerHelper,

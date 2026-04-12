@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
                         when (s) {
                             StartupState.Ready    -> NexisApp()
                             StartupState.NeedsPerm -> PermissionSetupScreen {
-                                // User tapped "Grant" — open settings, then re-check on resume
+                                // User tapped "Grant" -open settings, then re-check on resume
                                 UpdateChecker.openInstallPermissionSettings(this@MainActivity)
                             }
                             else -> UpdateSplashScreen(s)
@@ -85,12 +85,12 @@ class MainActivity : ComponentActivity() {
         val release = UpdateChecker.checkForUpdate()
 
         if (release == null) {
-            // No update — go straight to the app
+            // No update -go straight to the app
             withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
             return
         }
 
-        // 2. Update found — do we have permission to install silently?
+        // 2. Update found -do we have permission to install silently?
         if (!UpdateChecker.hasInstallPermission(this)) {
             withContext(Dispatchers.Main) { _startupState.value = StartupState.NeedsPerm }
             return
@@ -104,12 +104,12 @@ class MainActivity : ComponentActivity() {
         }
 
         if (apkFile == null) {
-            // Download failed — skip update, open app normally
+            // Download failed -skip update, open app normally
             withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
             return
         }
 
-        // 4. Install silently — Android will restart the app on success
+        // 4. Install silently -Android will restart the app on success
         withContext(Dispatchers.Main) { _startupState.value = StartupState.Installing }
         delay(300) // let the UI render "Installing…" before we hand off to PackageInstaller
         UpdateChecker.installSilently(this, apkFile)
@@ -189,7 +189,7 @@ private fun PermissionSetupScreen(onGrant: () -> Unit) {
         Text(
             "NeXiS needs permission to install updates automatically.\n\n" +
             "Tap \"Grant\" below, enable \"Allow from this source\" in the next screen, " +
-            "then come back — this is the only time you'll ever need to do this.",
+            "then come back -this is the only time you'll ever need to do this.",
             style     = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color     = MaterialTheme.colorScheme.onSurfaceVariant,
