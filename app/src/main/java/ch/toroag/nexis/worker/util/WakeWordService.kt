@@ -57,17 +57,14 @@ class WakeWordService : Service() {
             "tokens.txt",
         )
 
-        // BPE token sequences — multiple spellings/tokenisations so the model
-        // reliably catches "hey nexis", "nexis", "hey nexus", "nexus"
+        // BPE tokens verified against the model's tokens.txt vocabulary.
+        // ▁HEY doesn't exist — it's ▁HE Y. ▁NEX doesn't exist — it's ▁NE X.
+        // "nexis" → ▁NE X IS,  "nexus" → ▁NE X US
         private val KEYWORDS_TXT =
-            "▁HEY ▁NEX IS @hey_nexis\n" +
-            "▁HEY ▁NEXIS @hey_nexis\n" +
-            "▁HEY ▁N EX IS @hey_nexis\n" +
-            "▁NEX IS @hey_nexis\n" +
-            "▁NEXIS @hey_nexis\n" +
-            "▁N EX IS @hey_nexis\n" +
-            "▁HEY ▁NEX US @hey_nexis\n" +
-            "▁NEX US @hey_nexis\n"
+            "▁HE Y ▁NE X IS @hey_nexis\n" +   // "hey nexis"
+            "▁NE X IS @hey_nexis\n" +           // "nexis"
+            "▁HE Y ▁NE X US @hey_nexis\n" +    // "hey nexus"
+            "▁NE X US @hey_nexis\n"             // "nexus"
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -160,8 +157,8 @@ class WakeWordService : Service() {
             keywordsFile       = File(modelDir, "keywords.txt").absolutePath,
             maxActivePaths     = 4,
             numTrailingBlanks  = 2,
-            keywordsThreshold  = 0.25f,
-            keywordsScore      = 1.5f,
+            keywordsThreshold  = 0.15f,
+            keywordsScore      = 2.0f,
         )
 
         try {
