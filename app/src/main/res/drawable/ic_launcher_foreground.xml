@@ -1,22 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NeXiS "N" lettermark — orange bold N on transparent background -->
+<!-- NeXiS logo: triangle with eye — orange on transparent (background layer provides dark bg) -->
+<!-- Safe zone: 72x72 centered in 108x108, so drawable content from ~18,18 to ~90,90 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Left vertical bar -->
+    <!-- Outer triangle (stroke only) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E8720C"
+        android:strokeWidth="3.5"
+        android:pathData="M54,14 L94,90 L14,90 Z"/>
+
+    <!-- Subtle center vertical line (like the web UI logo detail) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E8720C"
+        android:strokeWidth="1"
+        android:strokeAlpha="0.35"
+        android:pathData="M54,14 L54,90"/>
+
+    <!-- Eye outer ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E8720C"
+        android:strokeWidth="2.2"
+        android:pathData="M54,66 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0"/>
+
+    <!-- Iris (filled orange) -->
     <path
         android:fillColor="#E8720C"
-        android:pathData="M22,22 L35,22 L35,86 L22,86 Z"/>
-    <!-- Diagonal stroke (top-left to bottom-right, the defining stroke of N) -->
+        android:pathData="M54,66 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
+
+    <!-- Pupil highlight -->
     <path
-        android:fillColor="#E8720C"
-        android:pathData="M35,22 L48,22 L86,86 L73,86 Z"/>
-    <!-- Right vertical bar -->
-    <path
-        android:fillColor="#E8720C"
-        android:pathData="M73,22 L86,22 L86,86 L73,86 Z"/>
+        android:fillColor="#FF9533"
+        android:pathData="M54,66 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0"/>
 
 </vector>

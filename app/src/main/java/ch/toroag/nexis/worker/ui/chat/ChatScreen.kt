@@ -212,10 +212,13 @@ fun ChatScreen(
                         }
                         // Send / stop streaming
                         IconButton(onClick = {
-                            if (isStreaming) chatVm.abortStreaming()
-                            else if (inputText.isNotBlank()) {
+                            if (isStreaming) {
+                                chatVm.abortStreaming()
+                                SoundFx.tap()
+                            } else if (inputText.isNotBlank()) {
                                 chatVm.sendMessage(inputText)
                                 inputText = ""
+                                SoundFx.send()
                             }
                         }) {
                             Icon(
@@ -291,7 +294,11 @@ private fun MessageBubble(msg: ChatMessage) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         if (!isUser) {
-            Column(horizontalAlignment = Alignment.Start) {
+            // AI messages: full width so code blocks have room
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.Start,
+            ) {
                 Text(
                     "nexis",
                     style    = MaterialTheme.typography.labelSmall,
@@ -299,16 +306,17 @@ private fun MessageBubble(msg: ChatMessage) {
                     modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
                 )
                 Surface(
-                    shape    = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
-                    color    = NxBg3,
-                    modifier = Modifier.widthIn(max = 320.dp),
+                    shape = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
+                    color = NxBg3,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         RenderedMessage(msg.content)
                     }
                 }
             }
         } else {
+            // User messages: right-aligned bubble with max width
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     "you",
@@ -319,7 +327,7 @@ private fun MessageBubble(msg: ChatMessage) {
                 Surface(
                     shape    = RoundedCornerShape(8.dp, 2.dp, 8.dp, 8.dp),
                     color    = NxDim,
-                    modifier = Modifier.widthIn(max = 300.dp),
+                    modifier = Modifier.widthIn(max = 280.dp),
                 ) {
                     Text(
                         msg.content,
