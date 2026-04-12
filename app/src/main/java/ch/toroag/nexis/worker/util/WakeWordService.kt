@@ -57,12 +57,17 @@ class WakeWordService : Service() {
             "tokens.txt",
         )
 
-        // BPE token sequences for "hey nexis" — multiple variants cover different
-        // tokenisations the model might produce for the uncommon word "nexis"
+        // BPE token sequences — multiple spellings/tokenisations so the model
+        // reliably catches "hey nexis", "nexis", "hey nexus", "nexus"
         private val KEYWORDS_TXT =
             "▁HEY ▁NEX IS @hey_nexis\n" +
             "▁HEY ▁NEXIS @hey_nexis\n" +
-            "▁HEY ▁N EX IS @hey_nexis\n"
+            "▁HEY ▁N EX IS @hey_nexis\n" +
+            "▁NEX IS @hey_nexis\n" +
+            "▁NEXIS @hey_nexis\n" +
+            "▁N EX IS @hey_nexis\n" +
+            "▁HEY ▁NEX US @hey_nexis\n" +
+            "▁NEX US @hey_nexis\n"
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -83,7 +88,9 @@ class WakeWordService : Service() {
             stopDetection(); stopSelf(); return START_NOT_STICKY
         }
         startForeground(NOTIF_ID, buildNotification("starting..."))
-        scope.launch { initialize() }
+        scope.launch { runCatching { initialize() }.onFailure { e ->
+            updateNotification("error: ${e.message?.take(80)}")
+        }}
         return START_STICKY
     }
 
@@ -160,7 +167,7 @@ class WakeWordService : Service() {
         try {
             kws    = KeywordSpotter(assetManager = null, config = config)
             stream = kws!!.createStream()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             updateNotification("model load failed: ${e.message?.take(60)}")
             return
         }
