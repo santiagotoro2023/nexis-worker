@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base theme: no title bar — Compose takes over all rendering -->
-    <style name="Theme.NexisWorker" parent="android:Theme.Material.NoTitleBar" />
+    <!-- Compose takes over all rendering; use DeviceDefault as the base
+         so no AppCompat dependency is required. -->
+    <style name="Theme.NexisWorker" parent="android:Theme.DeviceDefault.NoActionBar" />
 </resources>
