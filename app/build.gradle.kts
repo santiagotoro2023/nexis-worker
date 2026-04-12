@@ -24,22 +24,12 @@ android {
         buildConfigField("long", "VERSION_TIMESTAMP", "${buildTime}L")
     }
 
-    signingConfigs {
-        create("release") {
-            // GitHub Actions injects these via environment variables
-            storeFile = System.getenv("KEYSTORE_PATH")?.let { file(it) }
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            // Signing is done post-build by apksigner in CI (avoids BouncyCastle PKCS12 OID issues)
         }
         debug {
             applicationIdSuffix = ".debug"
