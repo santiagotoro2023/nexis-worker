@@ -196,6 +196,14 @@ class NexisApiService(
         onClosed()
     }
 
+    /** Clears the active conversation on the server (keeps memories/history). */
+    fun clearConversation(baseUrl: String, token: String) {
+        val req = Request.Builder().url("$baseUrl/api/clear")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
     fun fetchAudioChunk(baseUrl: String, token: String, chunkId: Int): ByteArray? {
         val req = Request.Builder().url("$baseUrl/api/audio/$chunkId")
             .withBearer(token).get().build()

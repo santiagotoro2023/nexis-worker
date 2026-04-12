@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
@@ -60,9 +61,10 @@ fun ChatScreen(
     val voiceEnabled    by chatVm.voiceEnabled.collectAsState()
     val externalTyping  by chatVm.externalTyping.collectAsState()
 
-    var inputText      by remember { mutableStateOf("") }
-    var showModelSheet by remember { mutableStateOf(false) }
-    var isMicListening by remember { mutableStateOf(false) }
+    var inputText         by remember { mutableStateOf("") }
+    var showModelSheet    by remember { mutableStateOf(false) }
+    var showClearConfirm  by remember { mutableStateOf(false) }
+    var isMicListening    by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     val speech    = remember { SpeechRecognizerHelper(context) }
@@ -129,6 +131,10 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // New conversation button
+                    IconButton(onClick = { showClearConfirm = true }) {
+                        Icon(Icons.Default.Edit, "New conversation", tint = NxFg2)
+                    }
                     // Speaker icon — toggles TTS voice output from controller
                     IconButton(onClick = { chatVm.toggleVoice(!voiceEnabled) }) {
                         Icon(
@@ -266,6 +272,28 @@ fun ChatScreen(
                 item { TypingBubble() }
             }
         }
+    }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            containerColor   = MaterialTheme.colorScheme.surface,
+            titleContentColor = NxFg,
+            textContentColor  = NxFg2,
+            title   = { Text("New conversation", style = MaterialTheme.typography.titleMedium) },
+            text    = { Text("Start a fresh conversation. Nexis keeps its memories and history for context.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearConfirm = false
+                    chatVm.clearConversation()
+                }) { Text("Start fresh", color = NxOrange) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text("Cancel", color = NxFg2)
+                }
+            },
+        )
     }
 
     if (showModelSheet) {

@@ -177,6 +177,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (!on) audioPlayer?.stop()
     }
 
+    fun clearConversation() {
+        viewModelScope.launch(Dispatchers.IO) {
+            api.clearConversation(baseUrl, token)
+            _messages.value = emptyList()
+            syncHistLen = 0
+        }
+    }
+
     fun clearError() { _errorMessage.value = null }
 
     override fun onCleared() {
