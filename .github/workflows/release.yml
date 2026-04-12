@@ -25,18 +25,8 @@ jobs:
           gradle-version: "8.9"
 
       - name: Decode keystore
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/nexis-input.jks
-          # Convert to legacy JKS format — Android build tools can't read modern PKCS12 OIDs
-          keytool -importkeystore \
-            -srckeystore /tmp/nexis-input.jks \
-            -srcstorepass "$KEYSTORE_PASSWORD" \
-            -destkeystore /tmp/nexis-release.jks \
-            -deststorepass "$KEYSTORE_PASSWORD" \
-            -deststoretype JKS \
-            -noprompt 2>&1 | grep -v "^Warning" || true
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/nexis-release.jks
 
       - name: Set build timestamp
         run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
