@@ -31,24 +31,14 @@ jobs:
       - name: Set build timestamp
         run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
 
-      - name: Build release APK (unsigned)
+      - name: Build and sign release APK
         env:
-          BUILD_TIMESTAMP: ${{ env.BUILD_TIMESTAMP }}
+          BUILD_TIMESTAMP:   ${{ env.BUILD_TIMESTAMP }}
+          KEYSTORE_PATH:     /tmp/nexis-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon
-
-      - name: Sign APK with apksigner
-        run: |
-          BUILD_TOOLS=$(ls "$ANDROID_SDK_ROOT/build-tools/" | sort -V | tail -1)
-          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner"
-          UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
-          SIGNED="app/build/outputs/apk/release/app-release.apk"
-          "$APKSIGNER" sign \
-            --ks /tmp/nexis-release.jks \
-            --ks-pass "pass:${{ secrets.KEYSTORE_PASSWORD }}" \
-            --ks-key-alias "${{ secrets.KEY_ALIAS }}" \
-            --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-            --out "$SIGNED" \
-            "$UNSIGNED"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
