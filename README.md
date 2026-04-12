@@ -1,104 +1,146 @@
 # nexis-worker
 
-Android companion app for [nexis-controller](https://github.com/santiagotoro2023/nexis-controller). Connect to your home AI from anywhere — streaming chat, GlaDOS voice playback, phone microphone input, and model switching, all from your phone.
+Android companion app for [nexis-controller](https://github.com/santiagotoro2023/nexis-controller). Connect to your home AI from anywhere — streaming chat, voice output, phone microphone input, model switching, and real-time sync across all your devices.
 
 ---
 
-## How to install
+## Install
 
-**You do not need Android Studio or any developer tools.**
+**No Android Studio or developer tools required.**
 
 1. Go to [Releases](https://github.com/santiagotoro2023/nexis-worker/releases/latest)
-2. Download `nexis-worker-vXXXX.apk`
-3. Open the APK on your phone — Android will ask you to allow installation from this source. Allow it.
-4. Done.
+2. Download `app-release.apk`
+3. Open the APK on your phone — allow installation from this source when prompted
+4. Done
 
-> The app auto-updates itself on every launch — you never need to manually download another APK.
+> The app checks for updates on every launch and installs them automatically in the background.
 
 ---
 
 ## First launch
 
-When you open the app for the first time it shows:
+**One-time permission screen** — tap "Grant permission" and enable "Allow from this source" in the Android settings that open. Return to the app. This only happens once.
 
-**One-time setup screen** — tap "Grant permission" and enable **"Allow from this source"** in the Android settings page that opens. Come back to the app. This is the only time you'll ever need to do this — after that, updates install completely automatically in the background.
+**Connect screen:**
 
-Then you'll see the **Connect screen**:
+- **Server URL** — your controller address, e.g. `https://nexis.yourdomain.com:8443`
+- **Password** — your controller password (default `Asdf1234!`, change it)
 
-- **Server URL** — your nexis-controller address, e.g. `nexis.toroag.ch` (no `https://` needed, the app adds it)
-- **Password** — your nexis-controller password (default `Asdf1234!`, you should change it)
-
-Tap **Connect**. The app exchanges your password for a persistent token — you won't need to enter the password again unless you change it.
-
----
-
-## Using the app
-
-### Chat
-Type a message and tap send. Responses stream in token-by-token, just like on the web UI.
-
-### Voice output (TTS)
-Tap the **speaker icon** in the top bar to toggle. When enabled, the controller synthesizes speech (GlaDOS voice) and streams the audio to your phone automatically. Audio chunks play in order as they arrive.
-
-### Voice input (STT)
-Tap the **mic button** next to the text field. Speak — the phone's built-in speech recognition transcribes what you say and sends it as a message. No audio is sent to the server; only the transcribed text.
-
-### Switch model
-Tap **Model** in the top bar to pick between available LLMs (Fast / Deep / Code). Only models installed on the controller are selectable.
+Tap **Connect**. The app:
+1. Exchanges your password for a persistent Bearer token — you won't need to re-enter the password unless you change it
+2. Pins the server's TLS certificate (TOFU) — self-signed certs are fully supported; no CA needed
+3. Loads your conversation history from the controller
 
 ---
 
-## Auto-update
+## Chat
 
-Every time you open the app it checks GitHub for a new release. If one is found:
+Type a message and tap send, or use the mic button for voice input. Responses stream token-by-token in real time.
 
-1. A loading screen appears: **"Downloading update… 42%"**
-2. It installs automatically (no tap needed)
-3. The app restarts on the new version
+**If another device is actively talking to NeXiS**, a typing indicator appears automatically — conversation history stays in sync across CLI, web, and app.
 
-The whole process takes a few seconds on a good connection. If the check fails (no internet, GitHub down), the app opens normally on the current version.
+### Message features
+
+- AI responses render markdown — headings, bullet lists, bold, inline code
+- Code blocks are visually distinct with a language label and a **Copy** button
+- Long-press any AI message to select and copy text
+
+---
+
+## Voice output
+
+Tap the **speaker icon** in the top bar to toggle. When on, the controller synthesizes speech (GlaDOS-style voice) and streams audio chunks to your phone. Chunks play in arrival order with no gaps.
+
+Voice output is session-scoped — audio only plays on the device that sent the message.
+
+---
+
+## Voice input
+
+Tap the **mic button** next to the text field. Speak — your phone transcribes what you say using Android's built-in speech recognition and sends the text as a message. No audio is sent to the server.
+
+---
+
+## Model selection
+
+Tap **Model** in the top bar. Only models installed on the controller are shown. Switching model affects all connected devices.
+
+---
+
+## Always-on wake word ("Hey Nexis")
+
+When enabled in Settings, a background service listens for the wake word using [Porcupine](https://picovoice.ai) — fully on-device, no audio ever leaves the phone.
+
+**To enable:**
+1. Set a Picovoice access key on the controller (Status page — see controller README)
+2. The app fetches the key automatically on next login
+3. Open Settings → wake word → toggle on
+
+A persistent notification appears while the service is running. When "Hey Nexis" is detected, the app opens and the mic activates automatically.
+
+> For the actual "Hey Nexis" phrase to work, a custom `.ppn` model file must be placed in `app/src/main/assets/` before building. Without it, the service starts but listens for the built-in "Porcupine" keyword as a placeholder. See the controller README for model setup details.
 
 ---
 
 ## Settings
 
-Tap the gear icon → **Settings**:
+Tap the gear icon. The settings screen scrolls if content exceeds the screen.
 
-- **Re-authenticate** — if you changed your controller password, enter the new one here to get a fresh token. The old token stops working when a new one is issued.
-- **Disconnect** — clears the saved token and returns to the Connect screen.
+| Setting | Description |
+|---|---|
+| **controller** | Shows the connected server URL |
+| **certificate** | Shows the pinned TLS fingerprint. Use "forget certificate" if the server cert was regenerated — the app will re-pin on the next connection |
+| **re-authenticate** | Enter your new controller password to get a fresh token, without disconnecting |
+| **hey nexis (wake word)** | Toggle always-on wake word detection; shows key status (fetched from controller) |
+| **disconnect** | Clears the saved token and returns to the Connect screen |
 
 ---
 
 ## Requirements
 
 - Android 8.0 (API 26) or newer
-- nexis-controller running and accessible over HTTPS
-- "Install unknown apps" permission granted once (for auto-update)
+- nexis-controller running and reachable over HTTPS
+- "Install unknown apps" permission (for auto-update, granted once on first launch)
+- Microphone permission (for voice input and wake word)
 
 ---
 
-## How the auto-update CI works (for developers)
+## Auto-update
+
+On every launch the app checks GitHub for a newer release. If found:
+
+1. A loading screen shows: **"Downloading update… 42%"**
+2. The APK installs silently — no tap needed
+3. The app restarts on the new version
+
+If the check or download fails the app opens normally on the current version.
+
+---
+
+## CI / releasing (for developers)
 
 Every push to `main` triggers `.github/workflows/release.yml`:
 
 1. Builds a release APK signed with the keystore stored in GitHub Secrets
 2. Creates a GitHub Release tagged `v<unix_timestamp>`
-3. Attaches the APK
+3. Attaches the APK as a release asset
 
-The version code is the Unix timestamp, so it's always increasing. The running app compares `BuildConfig.VERSION_TIMESTAMP` against the latest release tag — if the release is newer, it downloads and installs silently.
+The running app compares `BuildConfig.VERSION_TIMESTAMP` to the latest release tag. If the release is newer, it downloads and installs the APK silently via Android's PackageInstaller.
 
 ### Required GitHub Secrets
 
 | Secret | Value |
 |---|---|
-| `KEYSTORE_BASE64` | `base64 nexis-release.jks` output |
+| `KEYSTORE_BASE64` | Base64-encoded `.jks` keystore file |
 | `KEYSTORE_PASSWORD` | Keystore password |
 | `KEY_ALIAS` | Key alias (e.g. `nexis`) |
 | `KEY_PASSWORD` | Key password |
 
-Generate a keystore once:
+Generate a keystore once (use JKS format — PKCS12 has compatibility issues with the Android build tools):
+
 ```bash
-keytool -genkey -v -keystore nexis-release.jks \
-  -alias nexis -keyalg RSA -keysize 2048 -validity 36500
-base64 nexis-release.jks   # paste output into KEYSTORE_BASE64 secret
+keytool -genkeypair -keystore nexis-release.jks -storetype JKS \
+  -alias nexis -keyalg RSA -keysize 2048 -validity 36500 \
+  -dname "CN=NeXiS, O=nexis, C=CH"
+base64 nexis-release.jks   # paste into KEYSTORE_BASE64 secret
 ```
