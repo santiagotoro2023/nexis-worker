@@ -38,6 +38,13 @@ jobs:
             echo "KEY_PASSWORD=temppass" >> $GITHUB_ENV
           fi
 
+      - name: Download sherpa-onnx Android AAR
+        run: |
+          mkdir -p app/libs
+          curl -fL "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.10.35/sherpa-onnx-v1.10.35-android.tar.bz2" \
+            | tar xj -C /tmp/
+          find /tmp -name "sherpa-onnx-android.aar" | head -1 | xargs -I{} cp {} app/libs/sherpa-onnx-android.aar
+
       - name: Set build timestamp
         run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
 
