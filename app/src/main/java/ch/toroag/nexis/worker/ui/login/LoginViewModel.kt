@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
+import ch.toroag.nexis.worker.util.CertPinStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,10 +14,13 @@ import kotlinx.coroutines.launch
 class LoginViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = PreferencesRepository.get(app)
-    private val api   = NexisApiService(prefs)
+    private val api   = NexisApiService(prefs, app)
 
     private val _uiState = MutableStateFlow<LoginState>(LoginState.Idle)
     val uiState: StateFlow<LoginState> = _uiState
+
+    /** Fingerprint of the server cert, set after first successful connection. */
+    val certFingerprint: String? get() = CertPinStore.getPin(getApplication())
 
     fun login(baseUrl: String, password: String) {
         if (baseUrl.isBlank() || password.isBlank()) {
@@ -32,7 +36,7 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                     _uiState.value = LoginState.Success
                 }
                 .onFailure { e ->
-                    _uiState.value = LoginState.Error(e.message ?: "Login failed")
+                    _uiState.value = LoginState.Error(e.message ?: "Connection failed")
                 }
         }
     }

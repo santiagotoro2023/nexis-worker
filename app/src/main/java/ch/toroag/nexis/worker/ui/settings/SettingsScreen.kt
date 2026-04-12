@@ -2,13 +2,14 @@ package ch.toroag.nexis.worker.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -19,10 +20,10 @@ fun SettingsScreen(
     vm: SettingsViewModel = viewModel(),
 ) {
     val baseUrl by vm.baseUrl.collectAsState()
+    val certPin by vm.certPin.collectAsState()
     val status  by vm.status.collectAsState()
 
-    var reAuthPw     by remember { mutableStateOf("") }
-    var showReAuthPw by remember { mutableStateOf(false) }
+    var reAuthPw by remember { mutableStateOf("") }
 
     LaunchedEffect(status) {
         if (status != null) {
@@ -43,10 +44,12 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp).fillMaxSize(),
-               verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            Modifier.padding(padding).padding(16.dp).fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
 
-            // Current server info
+            // Controller URL
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Controller", style = MaterialTheme.typography.labelMedium,
@@ -57,12 +60,50 @@ fun SettingsScreen(
                 }
             }
 
-            // Re-authenticate (e.g. after password change)
+            // Certificate info
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Certificate", style = MaterialTheme.typography.labelMedium,
+                         color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(4.dp))
+                    if (certPin != null) {
+                        Text("Pinned — connection is trusted",
+                             style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "SHA-256  $certPin",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize   = 10.sp,
+                            ),
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick  = { vm.forgetCertificate() },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Forget certificate") }
+                        Text(
+                            "Use this if the server cert was regenerated. " +
+                            "The next connection will automatically re-pair.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text("No certificate pinned — will pin on next connection.",
+                             style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Re-authenticate
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Re-authenticate", style = MaterialTheme.typography.labelMedium,
                          color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text("Use this if you changed your NeXiS password.",
                          style = MaterialTheme.typography.bodySmall,
                          color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -91,7 +132,6 @@ fun SettingsScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Logout
             OutlinedButton(
                 onClick  = { vm.logout(onLogout) },
                 modifier = Modifier.fillMaxWidth(),

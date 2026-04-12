@@ -1,5 +1,7 @@
 package ch.toroag.nexis.worker.data
 
+import android.content.Context
+import ch.toroag.nexis.worker.util.TofuTrustManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -7,27 +9,40 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
 
-class NexisApiService(private val prefs: PreferencesRepository) {
+class NexisApiService(
+    private val prefs:   PreferencesRepository,
+    private val context: Context,
+    /** Called when a new cert is pinned (first connection). */
+    onCertPinned: ((fingerprint: String) -> Unit)? = null,
+) {
+    // TOFU trust manager — accepts self-signed certs, pins on first use
+    private val trustManager = TofuTrustManager(context, onCertPinned)
 
-    // Two clients:
-    //   - streaming: long read timeout for SSE chat (5 min)
-    //   - standard:  short timeout for regular API calls
-    private fun makeClient(readTimeoutSec: Long): OkHttpClient =
-        OkHttpClient.Builder()
+    private fun buildClient(readTimeoutSec: Long): OkHttpClient {
+        val sslCtx = SSLContext.getInstance("TLS")
+        sslCtx.init(null, arrayOf(trustManager), SecureRandom())
+        return OkHttpClient.Builder()
+            .sslSocketFactory(sslCtx.socketFactory, trustManager)
+            // Self-signed certs won't match the hostname — TOFU fingerprint
+            // pinning provides the security guarantee instead of hostname checks.
+            .hostnameVerifier { _, _ -> true }
             .connectTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .readTimeout(readTimeoutSec, TimeUnit.SECONDS)
             .build()
+    }
 
-    private val streamClient  = makeClient(300)
-    private val standardClient = makeClient(30)
+    private val streamClient   = buildClient(300)
+    private val standardClient = buildClient(30)
 
     private fun Request.Builder.withBearer(token: String) =
         addHeader("Authorization", "Bearer $token")
 
-    // ── Auth ─────────────────────────────────────────────────────────────────
+    // ── Auth ──────────────────────────────────────────────────────────────────
 
     /** Exchange a plaintext password for a persistent Bearer token. */
     fun getToken(baseUrl: String, password: String): String {
@@ -43,10 +58,6 @@ class NexisApiService(private val prefs: PreferencesRepository) {
 
     // ── Chat / SSE ────────────────────────────────────────────────────────────
 
-    /**
-     * Stream a chat message via SSE.
-     * Calls back on the calling thread (run in IO dispatcher).
-     */
     fun streamChat(
         baseUrl:      String,
         token:        String,

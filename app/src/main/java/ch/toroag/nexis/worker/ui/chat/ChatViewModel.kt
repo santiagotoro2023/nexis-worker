@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class ChatMessage(
@@ -21,7 +20,7 @@ data class ChatMessage(
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = PreferencesRepository.get(app)
-    private val api   = NexisApiService(prefs)
+    private val api   = NexisApiService(prefs, app)
 
     private val _messages      = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
@@ -41,10 +40,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val _voiceEnabled  = MutableStateFlow(false)
     val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
 
-    // Credentials are loaded once
     private var baseUrl = ""
     private var token   = ""
-
     private var audioPlayer: AudioPlayer? = null
 
     init {
@@ -73,10 +70,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             _isStreaming.value = true
             _errorMessage.value = null
 
-            // Enable voice on server if user has it toggled on locally
-            if (_voiceEnabled.value) {
-                api.enableVoice(baseUrl, token, true)
-            }
+            if (_voiceEnabled.value) api.enableVoice(baseUrl, token, true)
 
             api.streamChat(
                 baseUrl      = baseUrl,
@@ -128,7 +122,5 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearError() { _errorMessage.value = null }
 
-    override fun onCleared() {
-        audioPlayer?.destroy()
-    }
+    override fun onCleared() { audioPlayer?.destroy() }
 }
