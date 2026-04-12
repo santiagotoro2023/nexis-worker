@@ -15,7 +15,7 @@ import ch.toroag.nexis.worker.R
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.KeywordSpotter
 import com.k2fsa.sherpa.onnx.KeywordSpotterConfig
-import com.k2fsa.sherpa.onnx.KeywordSpotterModelConfig
+import com.k2fsa.sherpa.onnx.OnlineModelConfig
 import com.k2fsa.sherpa.onnx.OnlineStream
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 import kotlinx.coroutines.CoroutineScope
@@ -139,7 +139,7 @@ class WakeWordService : Service() {
     private fun startDetection(modelDir: File) {
         val config = KeywordSpotterConfig(
             featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
-            modelConfig = KeywordSpotterModelConfig(
+            modelConfig = OnlineModelConfig(
                 transducer = OnlineTransducerModelConfig(
                     encoder = File(modelDir, MODEL_FILES[0]).absolutePath,
                     decoder = File(modelDir, MODEL_FILES[1]).absolutePath,
@@ -150,11 +150,11 @@ class WakeWordService : Service() {
                 debug      = false,
                 provider   = "cpu",
             ),
-            keywordsFile      = File(modelDir, "keywords.txt").absolutePath,
-            maxActivePaths    = 4,
-            numTrailingBlanks = 1,
-            threshold         = 0.25f,
-            boostScore        = 20.0f,
+            keywordsFile       = File(modelDir, "keywords.txt").absolutePath,
+            maxActivePaths     = 4,
+            numTrailingBlanks  = 2,
+            keywordsThreshold  = 0.25f,
+            keywordsScore      = 1.5f,
         )
 
         try {
