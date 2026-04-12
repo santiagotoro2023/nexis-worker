@@ -19,6 +19,9 @@ import ch.toroag.nexis.worker.data.PreferencesRepository
 import ch.toroag.nexis.worker.ui.chat.ChatScreen
 import ch.toroag.nexis.worker.ui.login.LoginScreen
 import ch.toroag.nexis.worker.ui.settings.SettingsScreen
+import ch.toroag.nexis.worker.ui.theme.NexisTheme
+import ch.toroag.nexis.worker.ui.theme.NxOrange
+import ch.toroag.nexis.worker.ui.theme.NxFg2
 import ch.toroag.nexis.worker.util.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -45,8 +48,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            NexisTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val state by _startupState
                     AnimatedContent(targetState = state, label = "startup") { s ->
                         when (s) {
@@ -127,32 +130,44 @@ private fun UpdateSplashScreen(state: StartupState) {
         verticalArrangement   = Arrangement.Center,
         horizontalAlignment   = Alignment.CenterHorizontally,
     ) {
-        Text("NeXiS", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(32.dp))
+        Text(
+            "NeXiS",
+            style = MaterialTheme.typography.headlineLarge,
+            color = NxOrange,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "nexis-worker",
+            style = MaterialTheme.typography.labelSmall,
+            color = NxFg2,
+        )
+        Spacer(Modifier.height(40.dp))
 
         when (state) {
             StartupState.Checking -> {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
                 Spacer(Modifier.height(16.dp))
-                Text("Checking for updates…",
-                     style = MaterialTheme.typography.bodyMedium,
+                Text("checking for updates…",
+                     style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             is StartupState.Downloading -> {
                 LinearProgressIndicator(
                     progress    = { state.progress / 100f },
                     modifier    = Modifier.fillMaxWidth(),
+                    color       = NxOrange,
+                    trackColor  = MaterialTheme.colorScheme.surfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
-                Text("Downloading update… ${state.progress}%",
-                     style = MaterialTheme.typography.bodyMedium,
+                Text("downloading update… ${state.progress}%",
+                     style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             StartupState.Installing -> {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
                 Spacer(Modifier.height(16.dp))
-                Text("Installing update…",
-                     style = MaterialTheme.typography.bodyMedium,
+                Text("installing update…",
+                     style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             else -> {}

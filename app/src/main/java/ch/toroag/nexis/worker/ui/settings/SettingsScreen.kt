@@ -1,8 +1,9 @@
 package ch.toroag.nexis.worker.ui.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -11,6 +12,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ch.toroag.nexis.worker.ui.theme.NxBorder
+import ch.toroag.nexis.worker.ui.theme.NxFg
+import ch.toroag.nexis.worker.ui.theme.NxFg2
+import ch.toroag.nexis.worker.ui.theme.NxOrange
+import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,101 +39,122 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = {
+                    Text("settings", style = MaterialTheme.typography.titleMedium, color = NxFg)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NxFg2)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         }
     ) { padding ->
         Column(
-            Modifier.padding(padding).padding(16.dp).fillMaxSize(),
+            Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
 
             // Controller URL
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Controller", style = MaterialTheme.typography.labelMedium,
-                         color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(4.dp))
-                    Text(baseUrl.ifEmpty { "Not configured" },
-                         style = MaterialTheme.typography.bodyMedium)
-                }
+            SettingsCard(label = "controller") {
+                Text(
+                    baseUrl.ifEmpty { "not configured" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (baseUrl.isEmpty()) NxFg2 else NxFg,
+                )
             }
 
             // Certificate info
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Certificate", style = MaterialTheme.typography.labelMedium,
-                         color = MaterialTheme.colorScheme.primary)
+            SettingsCard(label = "certificate") {
+                if (certPin != null) {
+                    Text(
+                        "pinned — connection trusted",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NxOrange,
+                    )
                     Spacer(Modifier.height(4.dp))
-                    if (certPin != null) {
-                        Text("Pinned — connection is trusted",
-                             style = MaterialTheme.typography.bodySmall,
-                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "SHA-256  $certPin",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize   = 10.sp,
-                            ),
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        OutlinedButton(
-                            onClick  = { vm.forgetCertificate() },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Forget certificate") }
-                        Text(
-                            "Use this if the server cert was regenerated. " +
-                            "The next connection will automatically re-pair.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text("No certificate pinned — will pin on next connection.",
-                             style = MaterialTheme.typography.bodySmall,
-                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    Text(
+                        certPin!!,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize   = 10.sp,
+                        ),
+                        color = NxFg2,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick  = { vm.forgetCertificate() },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(4.dp),
+                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2),
+                        border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
+                    ) { Text("forget certificate") }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "use this if the server cert was regenerated — next connection will re-pair automatically.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NxFg2,
+                    )
+                } else {
+                    Text(
+                        "no certificate pinned — will pin on next connection.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NxFg2,
+                    )
                 }
             }
 
             // Re-authenticate
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Re-authenticate", style = MaterialTheme.typography.labelMedium,
-                         color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(4.dp))
-                    Text("Use this if you changed your NeXiS password.",
-                         style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value         = reAuthPw,
-                        onValueChange = { reAuthPw = it },
-                        label         = { Text("New password") },
-                        modifier      = Modifier.fillMaxWidth(),
-                        singleLine    = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick  = { vm.reAuthenticate(reAuthPw) { reAuthPw = "" } },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled  = reAuthPw.isNotBlank(),
-                    ) { Text("Re-authenticate") }
-                }
+            SettingsCard(label = "re-authenticate") {
+                Text(
+                    "use this if you changed your nexis password.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NxFg2,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value         = reAuthPw,
+                    onValueChange = { reAuthPw = it },
+                    label         = { Text("new password", color = NxFg2) },
+                    modifier      = Modifier.fillMaxWidth(),
+                    singleLine    = true,
+                    shape         = RoundedCornerShape(4.dp),
+                    colors        = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor      = NxOrangeDim,
+                        unfocusedBorderColor    = NxBorder,
+                        focusedTextColor        = NxFg,
+                        unfocusedTextColor      = NxFg,
+                        cursorColor             = NxOrange,
+                        focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    visualTransformation = PasswordVisualTransformation(),
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick  = { vm.reAuthenticate(reAuthPw) { reAuthPw = "" } },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled  = reAuthPw.isNotBlank(),
+                    shape    = RoundedCornerShape(4.dp),
+                    colors   = ButtonDefaults.buttonColors(
+                        containerColor = NxOrangeDim,
+                        contentColor   = MaterialTheme.colorScheme.background,
+                    ),
+                ) { Text("re-authenticate") }
             }
 
             if (status != null) {
-                Text(status!!, color = MaterialTheme.colorScheme.primary,
-                     style = MaterialTheme.typography.bodySmall)
+                Text(status!!, color = NxOrange, style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.weight(1f))
@@ -135,9 +162,32 @@ fun SettingsScreen(
             OutlinedButton(
                 onClick  = { vm.logout(onLogout) },
                 modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(4.dp),
                 colors   = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error),
-            ) { Text("Disconnect") }
+                border   = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            ) { Text("disconnect") }
         }
+    }
+}
+
+@Composable
+private fun SettingsCard(label: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(0.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = NxOrange,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
+        Spacer(Modifier.height(8.dp))
+        content()
+        Spacer(Modifier.height(4.dp))
     }
 }
