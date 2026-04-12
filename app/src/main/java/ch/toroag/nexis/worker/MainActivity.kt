@@ -130,10 +130,16 @@ class MainActivity : ComponentActivity() {
         // 4. Install silently -Android will restart the app on success
         withContext(Dispatchers.Main) { _startupState.value = StartupState.Installing }
         delay(300) // let the UI render "Installing…" before we hand off to PackageInstaller
-        UpdateChecker.installSilently(this, apkFile)
+        val installed = runCatching { UpdateChecker.installSilently(this, apkFile) }.isSuccess
+
+        if (!installed) {
+            // PackageInstaller failed to start -open app normally
+            withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
+            return
+        }
 
         // PackageInstaller handles the rest asynchronously via InstallResultReceiver.
-        // If it fails, we fall through to Ready so the user isn't stuck.
+        // If it doesn't restart us within 8 s, fall through so user isn't stuck.
         delay(8000)
         withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
     }
