@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -37,12 +39,17 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val _currentModel  = MutableStateFlow("")
     val currentModel: StateFlow<String> = _currentModel
 
-    private val _voiceEnabled  = MutableStateFlow(false)
+    private val _voiceEnabled   = MutableStateFlow(false)
     val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
 
-    private var baseUrl = ""
-    private var token   = ""
+    private val _externalTyping = MutableStateFlow(false)
+    val externalTyping: StateFlow<Boolean> = _externalTyping
+
+    private var baseUrl   = ""
+    private var token     = ""
     private var audioPlayer: AudioPlayer? = null
+    private var syncJob:  Job? = null
+    private var syncHistLen = -1
 
     init {
         viewModelScope.launch {
@@ -51,8 +58,55 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     baseUrl = u; token = t
                     initAudioPlayer()
                     loadModels()
+                    initHistory()
                 }
             }
+        }
+    }
+
+    private fun initHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val hist = api.getHistory(baseUrl, token)
+            if (hist.isNotEmpty()) {
+                _messages.value = hist.mapIndexed { i, m ->
+                    ChatMessage(m.role, m.content, i.toLong())
+                }
+                syncHistLen = hist.size
+            }
+            startSync()
+        }
+    }
+
+    private fun startSync() {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch(Dispatchers.IO) {
+            api.streamSync(
+                baseUrl  = baseUrl,
+                token    = token,
+                onEvent  = { typing, histLen ->
+                    if (typing && !_isStreaming.value) {
+                        _externalTyping.value = true
+                    } else if (!typing) {
+                        _externalTyping.value = false
+                        if (!_isStreaming.value && syncHistLen >= 0 && histLen > syncHistLen) {
+                            val hist = api.getHistory(baseUrl, token)
+                            if (hist.isNotEmpty()) {
+                                _messages.value = hist.mapIndexed { i, m ->
+                                    ChatMessage(m.role, m.content, i.toLong())
+                                }
+                            }
+                        }
+                        syncHistLen = maxOf(syncHistLen, histLen)
+                    }
+                },
+                onClosed = {
+                    _externalTyping.value = false
+                    viewModelScope.launch {
+                        delay(5000)
+                        if (baseUrl.isNotEmpty() && token.isNotEmpty()) startSync()
+                    }
+                },
+            )
         }
     }
 
@@ -82,7 +136,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 },
                 onAudioReady = { chunkId -> audioPlayer?.enqueue(chunkId) },
-                onDone       = { _isStreaming.value = false },
+                onDone       = {
+                    _isStreaming.value = false
+                    syncHistLen = _messages.value.size
+                },
                 onError      = { err ->
                     _isStreaming.value = false
                     if (err == "401") _errorMessage.value = "Session expired — please log in again"
@@ -122,5 +179,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearError() { _errorMessage.value = null }
 
-    override fun onCleared() { audioPlayer?.destroy() }
+    override fun onCleared() {
+        syncJob?.cancel()
+        audioPlayer?.destroy()
+    }
 }

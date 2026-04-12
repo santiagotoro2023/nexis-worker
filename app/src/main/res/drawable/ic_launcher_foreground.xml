@@ -7,36 +7,36 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer triangle (stroke only) -->
+    <!-- Outer triangle — scaled to fit within adaptive icon safe zone (18-90) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#E8720C"
-        android:strokeWidth="3.5"
-        android:pathData="M54,14 L94,90 L14,90 Z"/>
+        android:strokeWidth="3"
+        android:pathData="M54,24 L86,84 L22,84 Z"/>
 
-    <!-- Subtle center vertical line (like the web UI logo detail) -->
+    <!-- Center vertical hairline -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#E8720C"
-        android:strokeWidth="1"
+        android:strokeWidth="0.9"
         android:strokeAlpha="0.35"
-        android:pathData="M54,14 L54,90"/>
+        android:pathData="M54,24 L54,84"/>
 
     <!-- Eye outer ring -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#E8720C"
-        android:strokeWidth="2.2"
-        android:pathData="M54,66 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0"/>
+        android:strokeWidth="2"
+        android:pathData="M54,65 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0"/>
 
     <!-- Iris (filled orange) -->
     <path
         android:fillColor="#E8720C"
-        android:pathData="M54,66 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
+        android:pathData="M54,65 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"/>
 
     <!-- Pupil highlight -->
     <path
         android:fillColor="#FF9533"
-        android:pathData="M54,66 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0"/>
+        android:pathData="M54,65 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"/>
 
 </vector>

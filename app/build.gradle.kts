@@ -72,5 +72,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.porcupine.android)
     debugImplementation(libs.androidx.ui.tooling)
 }

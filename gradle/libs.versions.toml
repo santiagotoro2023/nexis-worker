@@ -29,6 +29,7 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+porcupine-android = { group = "ai.picovoice", name = "porcupine-android", version = "3.0.2" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

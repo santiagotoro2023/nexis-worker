@@ -145,6 +145,57 @@ class NexisApiService(
         runCatching { standardClient.newCall(req).execute().close() }
     }
 
+    // ── Cross-device sync ─────────────────────────────────────────────────────
+
+    data class HistoryMessage(val role: String, val content: String)
+
+    fun getHistory(baseUrl: String, token: String): List<HistoryMessage> {
+        val req = Request.Builder().url("$baseUrl/api/history").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val arr = org.json.JSONObject(resp.body!!.string()).getJSONArray("history")
+                (0 until arr.length()).map {
+                    val o = arr.getJSONObject(it)
+                    HistoryMessage(o.getString("role"), o.getString("content"))
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    /** Subscribes to /api/sync SSE. Calls onEvent on each {typing, hist_len} event.
+     *  Blocks until the connection drops, then calls onClosed. */
+    fun streamSync(
+        baseUrl:   String,
+        token:     String,
+        onEvent:   (typing: Boolean, histLen: Int) -> Unit,
+        onClosed:  () -> Unit,
+    ) {
+        val req = Request.Builder()
+            .url("$baseUrl/api/sync")
+            .withBearer(token)
+            .addHeader("Accept", "text/event-stream")
+            .get().build()
+        try {
+            streamClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) { onClosed(); return }
+                val reader = BufferedReader(InputStreamReader(resp.body!!.byteStream()))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val l = line!!
+                    if (!l.startsWith("data: ")) continue
+                    try {
+                        val obj = org.json.JSONObject(l.removePrefix("data: "))
+                        val typing  = obj.optBoolean("typing", false)
+                        val histLen = obj.optInt("hist_len", 0)
+                        onEvent(typing, histLen)
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+        onClosed()
+    }
+
     fun fetchAudioChunk(baseUrl: String, token: String, chunkId: Int): ByteArray? {
         val req = Request.Builder().url("$baseUrl/api/audio/$chunkId")
             .withBearer(token).get().build()

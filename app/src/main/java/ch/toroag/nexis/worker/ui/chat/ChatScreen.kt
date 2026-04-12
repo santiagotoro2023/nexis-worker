@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.R
+import ch.toroag.nexis.worker.WakeWordEvents
 import ch.toroag.nexis.worker.ui.theme.NxBorder
 import ch.toroag.nexis.worker.ui.theme.NxBg3
 import ch.toroag.nexis.worker.ui.theme.NxDim
@@ -56,7 +57,8 @@ fun ChatScreen(
     val error        by chatVm.errorMessage.collectAsState()
     val models       by chatVm.models.collectAsState()
     val currentModel by chatVm.currentModel.collectAsState()
-    val voiceEnabled by chatVm.voiceEnabled.collectAsState()
+    val voiceEnabled    by chatVm.voiceEnabled.collectAsState()
+    val externalTyping  by chatVm.externalTyping.collectAsState()
 
     var inputText      by remember { mutableStateOf("") }
     var showModelSheet by remember { mutableStateOf(false) }
@@ -75,6 +77,21 @@ fun ChatScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
     DisposableEffect(Unit) { onDispose { speech.destroy() } }
+
+    // Wake word: auto-start mic when "Hey Nexis" is detected by WakeWordService
+    LaunchedEffect(Unit) {
+        WakeWordEvents.wakeDetected.collect {
+            if (!isMicListening && !isStreaming) {
+                val granted = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    SoundFx.micActivate()
+                    startListening(speech, chatVm) { isMicListening = it }
+                }
+            }
+        }
+    }
 
     Scaffold(
         containerColor      = MaterialTheme.colorScheme.background,
@@ -243,6 +260,9 @@ fun ChatScreen(
         ) {
             items(messages, key = { it.id }) { msg -> MessageBubble(msg) }
             if (isStreaming && messages.lastOrNull()?.content?.isEmpty() == true) {
+                item { TypingBubble() }
+            }
+            if (externalTyping && !isStreaming) {
                 item { TypingBubble() }
             }
         }
