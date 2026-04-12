@@ -1,7 +1,9 @@
 package ch.toroag.nexis.worker.ui.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -64,7 +66,8 @@ fun SettingsScreen(
             Modifier
                 .padding(padding)
                 .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
 
@@ -160,67 +163,36 @@ fun SettingsScreen(
             // Wake word
             SettingsCard(label = "hey nexis (wake word)") {
                 Text(
-                    "always-on wake word detection. audio is processed entirely on-device.",
+                    "always-on wake word detection -audio processed entirely on-device. access key synced automatically from the controller.",
                     style = MaterialTheme.typography.bodySmall,
                     color = NxFg2,
                 )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value         = wakeKeyInput,
-                    onValueChange = { wakeKeyInput = it },
-                    label         = { Text("picovoice access key", color = NxFg2) },
-                    modifier      = Modifier.fillMaxWidth(),
-                    singleLine    = true,
-                    shape         = RoundedCornerShape(4.dp),
-                    colors        = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor      = NxOrangeDim,
-                        unfocusedBorderColor    = NxBorder,
-                        focusedTextColor        = NxFg,
-                        unfocusedTextColor      = NxFg,
-                        cursorColor             = NxOrange,
-                        focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "get a free key at console.picovoice.ai. then create a custom \"Hey Nexis\" wake word and place hey-nexis_android.ppn in assets/.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NxFg2,
+                    if (wakeWordKey.isNotEmpty()) "key: configured" else "key: not configured -set in controller status page",
+                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                    color = if (wakeWordKey.isNotEmpty()) NxOrange else NxFg2,
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment     = Alignment.CenterVertically,
                 ) {
-                    Button(
-                        onClick  = { vm.saveWakeWordKey(wakeKeyInput) },
-                        enabled  = wakeKeyInput != wakeWordKey && wakeKeyInput.isNotBlank(),
-                        shape    = RoundedCornerShape(4.dp),
-                        colors   = ButtonDefaults.buttonColors(
-                            containerColor = NxOrangeDim,
-                            contentColor   = MaterialTheme.colorScheme.background,
+                    Text(
+                        if (wakeWordEnabled) "on" else "off",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (wakeWordEnabled) NxOrange else NxFg2,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Switch(
+                        checked         = wakeWordEnabled,
+                        onCheckedChange = { vm.setWakeWordEnabled(it) },
+                        colors          = SwitchDefaults.colors(
+                            checkedThumbColor  = NxOrange,
+                            checkedTrackColor  = NxOrangeDim,
                         ),
-                    ) { Text("save key") }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (wakeWordEnabled) "on" else "off",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (wakeWordEnabled) NxOrange else NxFg2,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Switch(
-                            checked         = wakeWordEnabled,
-                            onCheckedChange = { vm.setWakeWordEnabled(it) },
-                            colors          = SwitchDefaults.colors(
-                                checkedThumbColor  = NxOrange,
-                                checkedTrackColor  = NxOrangeDim,
-                            ),
-                        )
-                    }
+                    )
                 }
             }
 
@@ -228,7 +200,7 @@ fun SettingsScreen(
                 Text(status!!, color = NxOrange, style = MaterialTheme.typography.bodySmall)
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
 
             OutlinedButton(
                 onClick  = { vm.logout(onLogout) },
