@@ -1,13 +1,11 @@
 package ch.toroag.nexis.worker.ui.settings
 
 import android.app.Application
-import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
 import ch.toroag.nexis.worker.util.CertPinStore
-import ch.toroag.nexis.worker.util.WakeWordService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,14 +26,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _status        = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status
 
-    private val _wakeWordEnabled = MutableStateFlow(false)
-    val wakeWordEnabled: StateFlow<Boolean> = _wakeWordEnabled
-
     init {
         viewModelScope.launch {
-            _baseUrl.value         = prefs.baseUrl.first()
-            _certPin.value         = CertPinStore.getPin(getApplication())
-            _wakeWordEnabled.value = prefs.wakeWordEnabled.first()
+            _baseUrl.value = prefs.baseUrl.first()
+            _certPin.value = CertPinStore.getPin(getApplication())
         }
     }
 
@@ -67,20 +61,4 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearStatus() { _status.value = null }
-
-    fun setWakeWordEnabled(on: Boolean) {
-        _wakeWordEnabled.value = on
-        viewModelScope.launch {
-            prefs.setWakeWordEnabled(on)
-            val ctx = getApplication<Application>()
-            val svc = Intent(ctx, WakeWordService::class.java)
-            if (on) {
-                svc.action = WakeWordService.ACTION_START
-                ctx.startForegroundService(svc)
-            } else {
-                svc.action = WakeWordService.ACTION_STOP
-                ctx.startService(svc)
-            }
-        }
-    }
 }

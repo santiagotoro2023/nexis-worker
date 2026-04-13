@@ -4,10 +4,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -34,22 +30,6 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="ch.toroag.nexis.worker.INSTALL_RESULT" />
-            </intent-filter>
-        </receiver>
-
-        <!-- Wake word detection foreground service -->
-        <service
-            android:name=".util.WakeWordService"
-            android:foregroundServiceType="microphone"
-            android:exported="false"
-            android:stopWithTask="false" />
-
-        <!-- Restart wake word service after phone reboot -->
-        <receiver
-            android:name=".util.BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

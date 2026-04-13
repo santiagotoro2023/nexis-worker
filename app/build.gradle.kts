@@ -72,6 +72,5 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(files("libs/sherpa-onnx-android.aar"))
     debugImplementation(libs.androidx.ui.tooling)
 }

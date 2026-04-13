@@ -28,21 +28,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.core.content.ContextCompat
-import ch.toroag.nexis.worker.util.WakeWordService
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-
-// ── Global wake word event bus ────────────────────────────────────────────────
-object WakeWordEvents {
-    private val _wakeDetected = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val wakeDetected = _wakeDetected.asSharedFlow()
-    fun emit() { _wakeDetected.tryEmit(Unit) }
-}
 
 // ── Startup state machine ─────────────────────────────────────────────────────
 private sealed interface StartupState {
@@ -81,14 +68,6 @@ class MainActivity : ComponentActivity() {
 
         // Run the update check after UI is ready
         lifecycleScope.launch(Dispatchers.IO) { runStartupSequence() }
-    }
-
-    /** Called when app is already running and a new intent arrives (e.g., wake word). */
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        if (intent.action == "ch.toroag.nexis.worker.WAKE_WORD_DETECTED") {
-            WakeWordEvents.emit()
-        }
     }
 
     /** Called when user returns from the Install Unknown Apps settings screen. */
@@ -237,21 +216,6 @@ private fun NexisApp() {
     val navController = rememberNavController()
     val prefs         = PreferencesRepository.get(context)
     val token         by prefs.token.collectAsState(initial = null)
-    val wakeEnabled   by prefs.wakeWordEnabled.collectAsState(initial = false)
-
-    // Auto-start wake word service whenever the app is open and the setting is on
-    LaunchedEffect(wakeEnabled) {
-        if (wakeEnabled && ContextCompat.checkSelfPermission(
-                context, Manifest.permission.RECORD_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            context.startForegroundService(
-                Intent(context, WakeWordService::class.java).apply {
-                    action = WakeWordService.ACTION_START
-                }
-            )
-        }
-    }
 
     val startDest = when {
         token == null        -> "loading"   // still loading from DataStore

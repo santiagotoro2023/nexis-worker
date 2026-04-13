@@ -3,7 +3,6 @@ package ch.toroag.nexis.worker.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -15,9 +14,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class PreferencesRepository(private val context: Context) {
 
     companion object {
-        private val BASE_URL_KEY      = stringPreferencesKey("base_url")
-        private val TOKEN_KEY         = stringPreferencesKey("bearer_token")
-        private val WAKE_WORD_ON_KEY  = booleanPreferencesKey("wake_word_enabled")
+        private val BASE_URL_KEY = stringPreferencesKey("base_url")
+        private val TOKEN_KEY    = stringPreferencesKey("bearer_token")
 
         @Volatile private var instance: PreferencesRepository? = null
         fun get(context: Context): PreferencesRepository =
@@ -26,9 +24,8 @@ class PreferencesRepository(private val context: Context) {
             }
     }
 
-    val baseUrl:         Flow<String>  = context.dataStore.data.map { it[BASE_URL_KEY]  ?: "" }
-    val token:           Flow<String>  = context.dataStore.data.map { it[TOKEN_KEY]      ?: "" }
-    val wakeWordEnabled: Flow<Boolean> = context.dataStore.data.map { it[WAKE_WORD_ON_KEY] ?: false }
+    val baseUrl: Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY] ?: "" }
+    val token:   Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]    ?: "" }
 
     suspend fun saveCredentials(baseUrl: String, token: String) {
         context.dataStore.edit { prefs ->
@@ -45,7 +42,4 @@ class PreferencesRepository(private val context: Context) {
         context.dataStore.edit { prefs -> prefs.remove(TOKEN_KEY) }
     }
 
-    suspend fun setWakeWordEnabled(on: Boolean) {
-        context.dataStore.edit { prefs -> prefs[WAKE_WORD_ON_KEY] = on }
-    }
 }
