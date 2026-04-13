@@ -62,12 +62,19 @@ class NexisApiService(
         baseUrl:      String,
         token:        String,
         msg:          String,
+        fileData:     String?  = null,
+        fileMimeType: String?  = null,
+        fileName:     String?  = null,
         onToken:      (String) -> Unit,
         onAudioReady: (Int) -> Unit,
         onDone:       () -> Unit,
         onError:      (String) -> Unit,
     ) {
-        val bodyJson = JSONObject().put("msg", msg).toString()
+        val bodyObj = JSONObject().put("msg", msg)
+        if (fileData     != null) bodyObj.put("file_data", fileData)
+        if (fileMimeType != null) bodyObj.put("file_type", fileMimeType)
+        if (fileName     != null) bodyObj.put("file_name", fileName)
+        val bodyJson = bodyObj.toString()
             .toRequestBody("application/json".toMediaType())
         val req = Request.Builder()
             .url("$baseUrl/api/chat")
@@ -194,6 +201,39 @@ class NexisApiService(
             }
         } catch (_: Exception) {}
         onClosed()
+    }
+
+    // ── Health / dashboard ────────────────────────────────────────────────────
+
+    data class HealthInfo(
+        val model:       String,
+        val modelLabel:  String,
+        val voice:       Boolean,
+        val voiceModel:  String,
+        val memories:    Int,
+        val sessions:    Int,
+        val histLen:     Int,
+        val uptimeSeconds: Int,
+    )
+
+    fun getHealth(baseUrl: String, token: String): HealthInfo? {
+        val req = Request.Builder().url("$baseUrl/api/health").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val o = JSONObject(resp.body!!.string())
+                HealthInfo(
+                    model        = o.getString("model"),
+                    modelLabel   = o.getString("model_label"),
+                    voice        = o.getBoolean("voice"),
+                    voiceModel   = o.getString("voice_model"),
+                    memories     = o.getInt("memories"),
+                    sessions     = o.getInt("sessions"),
+                    histLen      = o.getInt("hist_len"),
+                    uptimeSeconds = o.getInt("uptime"),
+                )
+            }
+        } catch (e: Exception) { null }
     }
 
     /** Clears the active conversation on the server (keeps memories/history). */

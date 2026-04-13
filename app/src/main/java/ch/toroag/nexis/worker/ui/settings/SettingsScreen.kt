@@ -6,8 +6,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -18,6 +20,7 @@ import ch.toroag.nexis.worker.ui.theme.NxBorder
 import ch.toroag.nexis.worker.ui.theme.NxFg
 import ch.toroag.nexis.worker.ui.theme.NxFg2
 import ch.toroag.nexis.worker.ui.theme.NxOrange
+import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,9 +29,11 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     vm: SettingsViewModel = viewModel(),
 ) {
-    val baseUrl by vm.baseUrl.collectAsState()
-    val certPin by vm.certPin.collectAsState()
-    val status  by vm.status.collectAsState()
+    val baseUrl       by vm.baseUrl.collectAsState()
+    val certPin       by vm.certPin.collectAsState()
+    val status        by vm.status.collectAsState()
+    val health        by vm.health.collectAsState()
+    val healthLoading by vm.healthLoading.collectAsState()
 
     var reAuthPw by remember { mutableStateOf("") }
 
@@ -73,6 +78,48 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (baseUrl.isEmpty()) NxFg2 else NxFg,
                 )
+            }
+
+            // Controller health / dashboard
+            SettingsCard(label = "controller health") {
+                if (healthLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier  = Modifier.size(14.dp),
+                            color     = NxOrange,
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("checking...", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                    }
+                } else if (health == null) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically,
+                    ) {
+                        Text("unreachable", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                        IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Refresh, "Retry", tint = NxFg2, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                } else {
+                    val h = health!!
+                    val uptimeStr = formatUptime(h.uptimeSeconds)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            HealthRow("model",    h.modelLabel)
+                            HealthRow("voice",    if (h.voice) "on  [${h.voiceModel}]" else "off")
+                            HealthRow("memories", h.memories.toString())
+                            HealthRow("sessions", h.sessions.toString())
+                            HealthRow("context",  "${h.histLen} messages")
+                            HealthRow("uptime",   uptimeStr)
+                        }
+                        IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
             }
 
             // Certificate info
@@ -191,5 +238,24 @@ private fun SettingsCard(label: String, content: @Composable ColumnScope.() -> U
         Spacer(Modifier.height(8.dp))
         content()
         Spacer(Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun HealthRow(label: String, value: String) {
+    Row {
+        Text("$label  ", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+        Text(value, style = MaterialTheme.typography.labelSmall, color = NxFg)
+    }
+}
+
+private fun formatUptime(seconds: Int): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return when {
+        h > 0  -> "${h}h ${m}m"
+        m > 0  -> "${m}m ${s}s"
+        else   -> "${s}s"
     }
 }

@@ -14,10 +14,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 data class ChatMessage(
-    val role:    String,   // "user" | "assistant"
-    val content: String,
-    val id:      Long = System.currentTimeMillis(),
+    val role:      String,   // "user" | "assistant"
+    val content:   String,
+    val id:        Long = System.currentTimeMillis(),
+    val hasImage:  Boolean = false,
 )
+
+enum class ConnectionStatus { Connected, Connecting, Disconnected }
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -42,8 +45,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val _voiceEnabled   = MutableStateFlow(false)
     val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
 
-    private val _externalTyping = MutableStateFlow(false)
+    private val _externalTyping   = MutableStateFlow(false)
     val externalTyping: StateFlow<Boolean> = _externalTyping
+
+    private val _connectionStatus = MutableStateFlow(ConnectionStatus.Connecting)
+    val connectionStatus: StateFlow<ConnectionStatus> = _connectionStatus
 
     private var baseUrl   = ""
     private var token     = ""
@@ -78,12 +84,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun startSync() {
+        _connectionStatus.value = ConnectionStatus.Connecting
         syncJob?.cancel()
         syncJob = viewModelScope.launch(Dispatchers.IO) {
             api.streamSync(
                 baseUrl  = baseUrl,
                 token    = token,
                 onEvent  = { typing, histLen ->
+                    _connectionStatus.value = ConnectionStatus.Connected
                     if (typing && !_isStreaming.value) {
                         _externalTyping.value = true
                     } else if (!typing) {
@@ -100,6 +108,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 },
                 onClosed = {
+                    _connectionStatus.value = ConnectionStatus.Disconnected
                     _externalTyping.value = false
                     viewModelScope.launch {
                         delay(5000)
@@ -115,10 +124,17 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         audioPlayer = AudioPlayer(api, baseUrl, token, getApplication<Application>().cacheDir)
     }
 
-    fun sendMessage(text: String) {
-        if (_isStreaming.value || text.isBlank()) return
+    fun sendMessage(
+        text:          String,
+        imageBase64:   String? = null,
+        imageMimeType: String? = null,
+        imageName:     String? = null,
+    ) {
+        if (_isStreaming.value || (text.isBlank() && imageBase64 == null)) return
         viewModelScope.launch(Dispatchers.IO) {
-            _messages.value = _messages.value + ChatMessage("user", text)
+            val displayText = text.ifBlank { "[Image]" }
+            _messages.value = _messages.value + ChatMessage("user", displayText,
+                hasImage = imageBase64 != null)
             val assistantId = System.currentTimeMillis() + 1
             _messages.value = _messages.value + ChatMessage("assistant", "", assistantId)
             _isStreaming.value = true
@@ -127,20 +143,23 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if (_voiceEnabled.value) api.enableVoice(baseUrl, token, true)
 
             api.streamChat(
-                baseUrl      = baseUrl,
-                token        = token,
-                msg          = text,
-                onToken      = { tok ->
+                baseUrl       = baseUrl,
+                token         = token,
+                msg           = text,
+                fileData      = imageBase64,
+                fileMimeType  = imageMimeType,
+                fileName      = imageName,
+                onToken       = { tok ->
                     _messages.value = _messages.value.map { m ->
                         if (m.id == assistantId) m.copy(content = m.content + tok) else m
                     }
                 },
-                onAudioReady = { chunkId -> audioPlayer?.enqueue(chunkId) },
-                onDone       = {
+                onAudioReady  = { chunkId -> audioPlayer?.enqueue(chunkId) },
+                onDone        = {
                     _isStreaming.value = false
                     syncHistLen = _messages.value.size
                 },
-                onError      = { err ->
+                onError       = { err ->
                     _isStreaming.value = false
                     if (err == "401") _errorMessage.value = "Session expired — please log in again"
                     else _errorMessage.value = "Error: $err"

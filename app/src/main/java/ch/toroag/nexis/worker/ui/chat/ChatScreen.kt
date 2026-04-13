@@ -1,18 +1,27 @@
 package ch.toroag.nexis.worker.ui.chat
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
@@ -25,6 +34,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -32,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.R
 import ch.toroag.nexis.worker.ui.theme.NxBorder
@@ -43,35 +54,87 @@ import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
 import ch.toroag.nexis.worker.util.SoundFx
 import ch.toroag.nexis.worker.util.SpeechRecognizerHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val TIME_FMT = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+private val QUICK_ACTIONS = listOf(
+    "Brief me" to "Give me a quick morning briefing — time, anything relevant you know about me, and one thing worth knowing today.",
+    "What time is it?" to "What time and date is it right now?",
+    "Summarize conversation" to "Summarize our conversation so far in a few sentences.",
+    "What do you remember?" to "What do you remember about me? List your most relevant memories.",
+    "What's the weather?" to "What's the current weather where I am?",
+)
+
+// ── Pending image attachment ───────────────────────────────────────────────────
+private data class PendingImage(
+    val uri:      Uri,
+    val base64:   String,
+    val mimeType: String,
+    val name:     String,
+)
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     onNavigateToSettings: () -> Unit,
     chatVm: ChatViewModel = viewModel(),
 ) {
-    val context      = LocalContext.current
-    val messages     by chatVm.messages.collectAsState()
-    val isStreaming  by chatVm.isStreaming.collectAsState()
-    val error        by chatVm.errorMessage.collectAsState()
-    val models       by chatVm.models.collectAsState()
-    val currentModel by chatVm.currentModel.collectAsState()
+    val context         = LocalContext.current
+    val messages        by chatVm.messages.collectAsState()
+    val isStreaming     by chatVm.isStreaming.collectAsState()
+    val error           by chatVm.errorMessage.collectAsState()
+    val models          by chatVm.models.collectAsState()
+    val currentModel    by chatVm.currentModel.collectAsState()
     val voiceEnabled    by chatVm.voiceEnabled.collectAsState()
     val externalTyping  by chatVm.externalTyping.collectAsState()
+    val connStatus      by chatVm.connectionStatus.collectAsState()
 
-    var inputText         by remember { mutableStateOf("") }
-    var showModelSheet    by remember { mutableStateOf(false) }
-    var showClearConfirm  by remember { mutableStateOf(false) }
-    var isMicListening    by remember { mutableStateOf(false) }
+    var inputText          by remember { mutableStateOf("") }
+    var showModelSheet     by remember { mutableStateOf(false) }
+    var showClearConfirm   by remember { mutableStateOf(false) }
+    var showQuickActions   by remember { mutableStateOf(false) }
+    var showAttachMenu     by remember { mutableStateOf(false) }
+    var isMicListening     by remember { mutableStateOf(false) }
+    var pendingImage       by remember { mutableStateOf<PendingImage?>(null) }
+    var cameraUri          by remember { mutableStateOf<Uri?>(null) }
+    val scope              = rememberCoroutineScope()
 
     val listState = rememberLazyListState()
     val speech    = remember { SpeechRecognizerHelper(context) }
 
+    // ── Permission / media launchers ──────────────────────────────────────────
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) startListening(speech, chatVm) { isMicListening = it }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val img = uriToPendingImage(context, uri) ?: return@launch
+            withContext(Dispatchers.Main) { pendingImage = img }
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = cameraUri ?: return@rememberLauncherForActivityResult
+        if (!success) return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val img = uriToPendingImage(context, uri) ?: return@launch
+            withContext(Dispatchers.Main) { pendingImage = img }
+        }
     }
 
     LaunchedEffect(messages.size) {
@@ -81,7 +144,7 @@ fun ChatScreen(
 
     Scaffold(
         containerColor      = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0),   // we control all insets manually
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -93,10 +156,10 @@ fun ChatScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
-                            painter      = painterResource(R.drawable.ic_nexis_logo),
+                            painter     = painterResource(R.drawable.ic_nexis_logo),
                             contentDescription = "NeXiS",
-                            colorFilter  = ColorFilter.tint(NxOrange),
-                            modifier     = Modifier.size(28.dp),
+                            colorFilter = ColorFilter.tint(NxOrange),
+                            modifier    = Modifier.size(28.dp),
                         )
                         Spacer(Modifier.width(8.dp))
                         Column {
@@ -112,14 +175,26 @@ fun ChatScreen(
                                      style = MaterialTheme.typography.labelSmall,
                                      color = NxFg2)
                         }
+                        Spacer(Modifier.width(6.dp))
+                        // Connection status dot
+                        Box(
+                            Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when (connStatus) {
+                                        ConnectionStatus.Connected    -> NxOrange
+                                        ConnectionStatus.Connecting   -> NxOrangeDim
+                                        ConnectionStatus.Disconnected -> NxFg2
+                                    }
+                                )
+                        )
                     }
                 },
                 actions = {
-                    // New conversation button
                     IconButton(onClick = { showClearConfirm = true }) {
                         Icon(Icons.Default.Edit, "New conversation", tint = NxFg2)
                     }
-                    // Speaker icon — toggles TTS voice output from controller
                     IconButton(onClick = { chatVm.toggleVoice(!voiceEnabled) }) {
                         Icon(
                             if (voiceEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
@@ -137,7 +212,6 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            // windowInsetsPadding union: when keyboard open = IME height, else = nav bar height
             Column(
                 Modifier.windowInsetsPadding(
                     WindowInsets.ime.union(WindowInsets.navigationBars)
@@ -163,10 +237,30 @@ fun ChatScreen(
                         }
                     }
                 }
+
+                // Pending image preview
+                if (pendingImage != null) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Default.AttachFile, null, tint = NxOrange, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(pendingImage!!.name, Modifier.weight(1f),
+                             style = MaterialTheme.typography.bodySmall, color = NxFg)
+                        IconButton(onClick = { pendingImage = null }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Close, "Remove image", tint = NxFg2)
+                        }
+                    }
+                }
+
                 Surface(
-                    color          = MaterialTheme.colorScheme.surface,
+                    color           = MaterialTheme.colorScheme.surface,
                     shadowElevation = 0.dp,
-                    tonalElevation = 0.dp,
+                    tonalElevation  = 0.dp,
                 ) {
                     Row(
                         Modifier
@@ -174,6 +268,12 @@ fun ChatScreen(
                             .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        // Quick actions
+                        Box {
+                            IconButton(onClick = { showQuickActions = true }) {
+                                Icon(Icons.Default.Add, "Quick actions", tint = NxFg2)
+                            }
+                        }
                         OutlinedTextField(
                             value         = inputText,
                             onValueChange = { inputText = it },
@@ -193,7 +293,37 @@ fun ChatScreen(
                             textStyle = MaterialTheme.typography.bodyMedium,
                         )
                         Spacer(Modifier.width(4.dp))
-                        // Mic button — push-to-talk voice input (phone-side STT)
+                        // Attach image button with dropdown
+                        Box {
+                            IconButton(onClick = { showAttachMenu = true }) {
+                                Icon(Icons.Default.AttachFile, "Attach image", tint = NxFg2)
+                            }
+                            DropdownMenu(
+                                expanded         = showAttachMenu,
+                                onDismissRequest = { showAttachMenu = false },
+                                containerColor   = MaterialTheme.colorScheme.surface,
+                            ) {
+                                DropdownMenuItem(
+                                    text    = { Text("Camera", color = NxFg) },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        val tmp = File.createTempFile("nexis_", ".jpg", context.cacheDir)
+                                        val uri = FileProvider.getUriForFile(
+                                            context, "${context.packageName}.provider", tmp)
+                                        cameraUri = uri
+                                        cameraLauncher.launch(uri)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text    = { Text("Gallery", color = NxFg) },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        galleryLauncher.launch("image/*")
+                                    },
+                                )
+                            }
+                        }
+                        // Mic button
                         IconButton(onClick = {
                             if (isMicListening) {
                                 SoundFx.micDeactivate()
@@ -222,9 +352,11 @@ fun ChatScreen(
                             if (isStreaming) {
                                 chatVm.abortStreaming()
                                 SoundFx.tap()
-                            } else if (inputText.isNotBlank()) {
-                                chatVm.sendMessage(inputText)
-                                inputText = ""
+                            } else if (inputText.isNotBlank() || pendingImage != null) {
+                                val img = pendingImage
+                                chatVm.sendMessage(inputText, img?.base64, img?.mimeType, img?.name)
+                                inputText    = ""
+                                pendingImage = null
                                 SoundFx.send()
                             }
                         }) {
@@ -248,7 +380,7 @@ fun ChatScreen(
             contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(messages, key = { it.id }) { msg -> MessageBubble(msg) }
+            items(messages, key = { it.id }) { msg -> MessageBubble(msg, context) }
             if (isStreaming && messages.lastOrNull()?.content?.isEmpty() == true) {
                 item { TypingBubble() }
             }
@@ -260,8 +392,8 @@ fun ChatScreen(
 
     if (showClearConfirm) {
         AlertDialog(
-            onDismissRequest = { showClearConfirm = false },
-            containerColor   = MaterialTheme.colorScheme.surface,
+            onDismissRequest  = { showClearConfirm = false },
+            containerColor    = MaterialTheme.colorScheme.surface,
             titleContentColor = NxFg,
             textContentColor  = NxFg2,
             title   = { Text("New conversation", style = MaterialTheme.typography.titleMedium) },
@@ -278,6 +410,36 @@ fun ChatScreen(
                 }
             },
         )
+    }
+
+    if (showQuickActions) {
+        ModalBottomSheet(
+            onDismissRequest = { showQuickActions = false },
+            containerColor   = MaterialTheme.colorScheme.surface,
+            contentColor     = NxFg,
+        ) {
+            Text(
+                "quick actions",
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = NxFg2,
+            )
+            QUICK_ACTIONS.forEach { (label, prompt) ->
+                ListItem(
+                    headlineContent = {
+                        Text(label, color = NxFg, style = MaterialTheme.typography.bodyMedium)
+                    },
+                    colors   = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.clickable {
+                        showQuickActions = false
+                        chatVm.sendMessage(prompt)
+                        SoundFx.send()
+                    },
+                )
+                HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
+            }
+            Spacer(Modifier.height(24.dp))
+        }
     }
 
     if (showModelSheet) {
@@ -318,15 +480,16 @@ fun ChatScreen(
 
 // ── Message bubble ─────────────────────────────────────────────────────────────
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(msg: ChatMessage) {
-    val isUser = msg.role == "user"
+private fun MessageBubble(msg: ChatMessage, context: Context) {
+    val isUser    = msg.role == "user"
+    val timeLabel = TIME_FMT.format(Date(msg.id))
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         if (!isUser) {
-            // AI messages: full width so code blocks have room
             Column(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start,
@@ -338,17 +501,27 @@ private fun MessageBubble(msg: ChatMessage) {
                     modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
                 )
                 Surface(
-                    shape = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
-                    color = NxBg3,
-                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp),
+                    color    = NxBg3,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick     = {},
+                            onLongClick = { copyToClipboard(context, msg.content) },
+                        ),
                 ) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         RenderedMessage(msg.content)
                     }
                 }
+                Text(
+                    timeLabel,
+                    style    = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color    = NxFg2.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+                )
             }
         } else {
-            // User messages: right-aligned bubble with max width
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     "you",
@@ -359,15 +532,40 @@ private fun MessageBubble(msg: ChatMessage) {
                 Surface(
                     shape    = RoundedCornerShape(8.dp, 2.dp, 8.dp, 8.dp),
                     color    = NxDim,
-                    modifier = Modifier.widthIn(max = 280.dp),
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        .combinedClickable(
+                            onClick     = {},
+                            onLongClick = { copyToClipboard(context, msg.content) },
+                        ),
                 ) {
-                    Text(
-                        msg.content,
-                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                        color = NxFg,
-                    )
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        if (msg.hasImage) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AttachFile, null,
+                                     tint = NxOrange, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("image attached",
+                                     style = MaterialTheme.typography.labelSmall,
+                                     color = NxOrangeDim)
+                            }
+                            if (msg.content.isNotBlank()) Spacer(Modifier.height(4.dp))
+                        }
+                        if (msg.content.isNotBlank()) {
+                            Text(
+                                msg.content,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                color = NxFg,
+                            )
+                        }
+                    }
                 }
+                Text(
+                    timeLabel,
+                    style    = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color    = NxFg2.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(end = 4.dp, top = 2.dp),
+                )
             }
         }
     }
@@ -408,3 +606,16 @@ private fun startListening(
         onError  = { setFlag(false) },
     )
 }
+
+private fun copyToClipboard(context: Context, text: String) {
+    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    cm.setPrimaryClip(ClipData.newPlainText("nexis", text))
+}
+
+private fun uriToPendingImage(context: Context, uri: Uri): PendingImage? = try {
+    val bytes    = context.contentResolver.openInputStream(uri)?.readBytes() ?: return null
+    val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+    val b64      = "data:$mimeType;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+    val name     = uri.lastPathSegment ?: "image.jpg"
+    PendingImage(uri = uri, base64 = b64, mimeType = mimeType, name = name)
+} catch (e: Exception) { null }

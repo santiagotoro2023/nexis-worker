@@ -17,19 +17,38 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = PreferencesRepository.get(app)
     private val api   = NexisApiService(prefs, app)
 
-    private val _baseUrl       = MutableStateFlow("")
+    private val _baseUrl = MutableStateFlow("")
     val baseUrl: StateFlow<String> = _baseUrl
 
-    private val _certPin       = MutableStateFlow<String?>(null)
+    private val _certPin = MutableStateFlow<String?>(null)
     val certPin: StateFlow<String?> = _certPin
 
-    private val _status        = MutableStateFlow<String?>(null)
+    private val _status  = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status
+
+    private val _health  = MutableStateFlow<NexisApiService.HealthInfo?>(null)
+    val health: StateFlow<NexisApiService.HealthInfo?> = _health
+
+    private val _healthLoading = MutableStateFlow(false)
+    val healthLoading: StateFlow<Boolean> = _healthLoading
 
     init {
         viewModelScope.launch {
             _baseUrl.value = prefs.baseUrl.first()
             _certPin.value = CertPinStore.getPin(getApplication())
+        }
+        refreshHealth()
+    }
+
+    fun refreshHealth() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _healthLoading.value = true
+            val url   = prefs.baseUrl.first()
+            val token = prefs.token.first()
+            if (url.isNotEmpty() && token.isNotEmpty()) {
+                _health.value = api.getHealth(url, token)
+            }
+            _healthLoading.value = false
         }
     }
 
@@ -53,7 +72,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Clears the pinned certificate. The next connection will re-pin automatically. */
     fun forgetCertificate() {
         CertPinStore.clearPin(getApplication())
         _certPin.value = null
