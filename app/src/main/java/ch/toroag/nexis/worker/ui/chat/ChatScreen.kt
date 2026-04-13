@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
@@ -57,6 +58,8 @@ import ch.toroag.nexis.worker.ui.theme.NxFg
 import ch.toroag.nexis.worker.ui.theme.NxFg2
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
+import ch.toroag.nexis.worker.MainActivity
+import ch.toroag.nexis.worker.SharePayload
 import ch.toroag.nexis.worker.util.SoundFx
 import ch.toroag.nexis.worker.util.SpeechRecognizerHelper
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +93,10 @@ private data class PendingImage(
 @Composable
 fun ChatScreen(
     onNavigateToSettings: () -> Unit,
-    onNavigateToVoice:    () -> Unit = {},
+    onNavigateToVoice:    () -> Unit    = {},
+    onNavigateToRemote:   () -> Unit    = {},
+    sharePayload:         SharePayload? = null,
+    onShareConsumed:      () -> Unit    = {},
     chatVm: ChatViewModel = viewModel(),
 ) {
     val context         = LocalContext.current
@@ -160,6 +166,28 @@ fun ChatScreen(
     }
     DisposableEffect(Unit) { onDispose { speech.destroy() } }
 
+    // Handle share-from-other-app: pre-populate input or send image directly
+    LaunchedEffect(sharePayload) {
+        val p = sharePayload ?: return@LaunchedEffect
+        onShareConsumed()
+        when {
+            p.imageB64 != null -> {
+                // Image share: send immediately with "What is this?" prompt
+                chatVm.sendMessage(
+                    text          = "What is this?",
+                    imageBase64   = p.imageB64,
+                    imageMimeType = p.imageMime,
+                    imageName     = "shared_image",
+                )
+                SoundFx.send()
+            }
+            p.text != null -> {
+                // Text share: pre-fill the input so user can edit before sending
+                inputText = p.text
+            }
+        }
+    }
+
     Scaffold(
         containerColor      = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
@@ -215,6 +243,9 @@ fun ChatScreen(
                     }
                     IconButton(onClick = onNavigateToVoice) {
                         Icon(Icons.Default.RecordVoiceOver, "Voice conversation", tint = NxFg2)
+                    }
+                    IconButton(onClick = onNavigateToRemote) {
+                        Icon(Icons.Default.Computer, "Remote control", tint = NxFg2)
                     }
                     IconButton(onClick = { chatVm.toggleVoice(!voiceEnabled) }) {
                         Icon(

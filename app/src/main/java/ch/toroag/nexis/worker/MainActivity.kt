@@ -21,6 +21,7 @@ import ch.toroag.nexis.worker.ui.history.HistoryScreen
 import ch.toroag.nexis.worker.ui.login.LoginScreen
 import ch.toroag.nexis.worker.ui.memories.MemoriesScreen
 import ch.toroag.nexis.worker.ui.schedules.SchedulesScreen
+import ch.toroag.nexis.worker.ui.remote.RemoteScreen
 import ch.toroag.nexis.worker.ui.settings.SettingsScreen
 import ch.toroag.nexis.worker.ui.voice.VoiceScreen
 import ch.toroag.nexis.worker.ui.theme.NexisTheme
@@ -33,7 +34,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 
 // ── Startup state machine ─────────────────────────────────────────────────────
 private sealed interface StartupState {
@@ -44,21 +47,33 @@ private sealed interface StartupState {
     object Ready      : StartupState                         // proceed to app
 }
 
+/** Payload extracted from an ACTION_SEND share intent. */
+data class SharePayload(
+    val text:      String?  = null,
+    val imageUri:  Uri?     = null,
+    val imageB64:  String?  = null,
+    val imageMime: String?  = null,
+)
+
 class MainActivity : ComponentActivity() {
 
     private val _startupState = mutableStateOf<StartupState>(StartupState.Checking)
+    private val _sharePayload = mutableStateOf<SharePayload?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        handleShareIntent(intent)
+
         setContent {
             NexisTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val state by _startupState
+                    val share by _sharePayload
                     AnimatedContent(targetState = state, label = "startup") { s ->
                         when (s) {
-                            StartupState.Ready    -> NexisApp()
+                            StartupState.Ready    -> NexisApp(sharePayload = share, onShareConsumed = { _sharePayload.value = null })
                             StartupState.NeedsPerm -> PermissionSetupScreen {
                                 // User tapped "Grant" -open settings, then re-check on resume
                                 UpdateChecker.openInstallPermissionSettings(this@MainActivity)
@@ -72,6 +87,33 @@ class MainActivity : ComponentActivity() {
 
         // Run the update check after UI is ready
         lifecycleScope.launch(Dispatchers.IO) { runStartupSequence() }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShareIntent(intent)
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND) return
+        val mimeType = intent.type ?: return
+        when {
+            mimeType == "text/plain" -> {
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+                _sharePayload.value = SharePayload(text = text)
+            }
+            mimeType.startsWith("image/") -> {
+                @Suppress("DEPRECATION")
+                val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) ?: return
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        val bytes = contentResolver.openInputStream(uri)?.readBytes() ?: return@launch
+                        val b64   = "data:$mimeType;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+                        _sharePayload.value = SharePayload(imageUri = uri, imageB64 = b64, imageMime = mimeType)
+                    } catch (_: Exception) {}
+                }
+            }
+        }
     }
 
     /** Called when user returns from the Install Unknown Apps settings screen. */
@@ -215,7 +257,10 @@ private fun PermissionSetupScreen(onGrant: () -> Unit) {
 // ── Main app nav ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun NexisApp() {
+private fun NexisApp(
+    sharePayload:    SharePayload? = null,
+    onShareConsumed: () -> Unit    = {},
+) {
     val context       = androidx.compose.ui.platform.LocalContext.current
     val navController = rememberNavController()
     val prefs         = PreferencesRepository.get(context)
@@ -245,6 +290,9 @@ private fun NexisApp() {
             ChatScreen(
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToVoice    = { navController.navigate("voice") },
+                onNavigateToRemote   = { navController.navigate("remote") },
+                sharePayload         = sharePayload,
+                onShareConsumed      = onShareConsumed,
             )
         }
         composable("settings") {
@@ -278,6 +326,9 @@ private fun NexisApp() {
         }
         composable("schedules") {
             SchedulesScreen(onBack = { navController.popBackStack() })
+        }
+        composable("remote") {
+            RemoteScreen(onBack = { navController.popBackStack() })
         }
     }
 }
