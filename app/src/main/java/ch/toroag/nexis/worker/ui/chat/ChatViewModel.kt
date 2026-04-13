@@ -51,11 +51,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val _connectionStatus = MutableStateFlow(ConnectionStatus.Connecting)
     val connectionStatus: StateFlow<ConnectionStatus> = _connectionStatus
 
-    private var baseUrl   = ""
-    private var token     = ""
+    private var baseUrl      = ""
+    private var token        = ""
     private var audioPlayer: AudioPlayer? = null
-    private var syncJob:  Job? = null
-    private var syncHistLen = -1
+    private var syncJob:     Job? = null
+    private var syncHistLen  = -1
+    private var _syncRetries = 0
 
     init {
         viewModelScope.launch {
@@ -92,6 +93,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 token    = token,
                 onEvent  = { typing, histLen ->
                     _connectionStatus.value = ConnectionStatus.Connected
+                    _syncRetries = 0
                     if (typing && !_isStreaming.value) {
                         _externalTyping.value = true
                     } else if (!typing) {
@@ -111,7 +113,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     _connectionStatus.value = ConnectionStatus.Disconnected
                     _externalTyping.value = false
                     viewModelScope.launch {
-                        delay(5000)
+                        val wait = minOf(5_000L * (1L shl minOf(_syncRetries, 4)), 60_000L)
+                        _syncRetries++
+                        delay(wait)
                         if (baseUrl.isNotEmpty() && token.isNotEmpty()) startSync()
                     }
                 },

@@ -14,7 +14,11 @@ class SpeechRecognizerHelper(private val context: Context) {
     var isListening = false
         private set
 
-    fun startListening(onResult: (String) -> Unit, onError: () -> Unit) {
+    fun startListening(
+        onResult:  (String) -> Unit,
+        onError:   () -> Unit,
+        onPartial: ((String) -> Unit)? = null,
+    ) {
         if (isListening) return
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(context)
@@ -23,7 +27,7 @@ class SpeechRecognizerHelper(private val context: Context) {
                      RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, onPartial != null)
         }
         recognizer!!.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?)  {}
@@ -31,8 +35,14 @@ class SpeechRecognizerHelper(private val context: Context) {
             override fun onRmsChanged(rmsdB: Float)          {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech()                     { isListening = false }
-            override fun onPartialResults(partial: Bundle?)  {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
+
+            override fun onPartialResults(partial: Bundle?) {
+                val text = partial
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                if (!text.isNullOrBlank()) onPartial?.invoke(text)
+            }
 
             override fun onResults(results: Bundle?) {
                 isListening = false

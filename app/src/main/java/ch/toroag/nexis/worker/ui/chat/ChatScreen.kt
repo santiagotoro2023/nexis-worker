@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Send
@@ -37,7 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,8 +50,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.R
-import ch.toroag.nexis.worker.ui.theme.NxBorder
 import ch.toroag.nexis.worker.ui.theme.NxBg3
+import ch.toroag.nexis.worker.ui.theme.NxBorder
 import ch.toroag.nexis.worker.ui.theme.NxDim
 import ch.toroag.nexis.worker.ui.theme.NxFg
 import ch.toroag.nexis.worker.ui.theme.NxFg2
@@ -73,12 +77,13 @@ private val QUICK_ACTIONS = listOf(
     "What's the weather?" to "What's the current weather where I am?",
 )
 
-// ── Pending image attachment ───────────────────────────────────────────────────
+// ── Pending attachment ─────────────────────────────────────────────────────────
 private data class PendingImage(
     val uri:      Uri,
     val base64:   String,
     val mimeType: String,
     val name:     String,
+    val isImage:  Boolean = true,
 )
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -99,6 +104,7 @@ fun ChatScreen(
     val connStatus      by chatVm.connectionStatus.collectAsState()
 
     var inputText          by remember { mutableStateOf("") }
+    var partialText        by remember { mutableStateOf("") }   // live STT partial
     var showModelSheet     by remember { mutableStateOf(false) }
     var showClearConfirm   by remember { mutableStateOf(false) }
     var showQuickActions   by remember { mutableStateOf(false) }
@@ -115,7 +121,7 @@ fun ChatScreen(
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) startListening(speech, chatVm) { isMicListening = it }
+        if (granted) startListening(speech, chatVm, { isMicListening = it }) { partialText = it }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -136,6 +142,16 @@ fun ChatScreen(
         scope.launch(Dispatchers.IO) {
             val img = uriToPendingImage(context, uri) ?: return@launch
             withContext(Dispatchers.Main) { pendingImage = img }
+        }
+    }
+
+    val docLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val att = uriToAttachment(context, uri) ?: return@launch
+            withContext(Dispatchers.Main) { pendingImage = att }
         }
     }
 
@@ -243,7 +259,28 @@ fun ChatScreen(
                     }
                 }
 
-                // Pending image preview
+                // Live STT partial transcript
+                if (isMicListening && partialText.isNotEmpty()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Default.Mic, null, tint = NxOrange, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            partialText,
+                            Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                            color = NxFg2,
+                        )
+                    }
+                }
+
+                // Pending attachment preview
                 if (pendingImage != null) {
                     Row(
                         Modifier
@@ -252,12 +289,39 @@ fun ChatScreen(
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Default.AttachFile, null, tint = NxOrange, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
+                        if (pendingImage!!.isImage) {
+                            val bmp = remember(pendingImage!!.uri) {
+                                try {
+                                    val bytes = Base64.decode(
+                                        pendingImage!!.base64.substringAfter(","), Base64.DEFAULT)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                        ?.asImageBitmap()
+                                } catch (_: Exception) { null }
+                            }
+                            if (bmp != null) {
+                                Image(
+                                    bitmap      = bmp,
+                                    contentDescription = null,
+                                    modifier    = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            } else {
+                                Icon(Icons.Default.AttachFile, null, tint = NxOrange,
+                                     modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                            }
+                        } else {
+                            Icon(Icons.Default.AttachFile, null, tint = NxOrange,
+                                 modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                        }
                         Text(pendingImage!!.name, Modifier.weight(1f),
                              style = MaterialTheme.typography.bodySmall, color = NxFg)
                         IconButton(onClick = { pendingImage = null }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Close, "Remove image", tint = NxFg2)
+                            Icon(Icons.Default.Close, "Remove", tint = NxFg2)
                         }
                     }
                 }
@@ -326,6 +390,13 @@ fun ChatScreen(
                                         galleryLauncher.launch("image/*")
                                     },
                                 )
+                                DropdownMenuItem(
+                                    text    = { Text("File / Document", color = NxFg) },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        docLauncher.launch("*/*")
+                                    },
+                                )
                             }
                         }
                         // Mic button
@@ -340,7 +411,7 @@ fun ChatScreen(
                                 ) == PackageManager.PERMISSION_GRANTED
                                 if (granted) {
                                     SoundFx.micActivate()
-                                    startListening(speech, chatVm) { isMicListening = it }
+                                    startListening(speech, chatVm, { isMicListening = it }) { partialText = it }
                                 } else {
                                     permLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
@@ -376,21 +447,45 @@ fun ChatScreen(
             }
         },
     ) { padding ->
-        LazyColumn(
+        val isAtBottom by remember {
+            derivedStateOf {
+                val info = listState.layoutInfo
+                val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                last >= info.totalItemsCount - 1
+            }
+        }
+        Box(
             Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
-            state               = listState,
-            contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(messages, key = { it.id }) { msg -> MessageBubble(msg, context) }
-            if (isStreaming && messages.lastOrNull()?.content?.isEmpty() == true) {
-                item { TypingBubble() }
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state               = listState,
+                contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(messages, key = { it.id }) { msg -> MessageBubble(msg, context) }
+                if (isStreaming && messages.lastOrNull()?.content?.isEmpty() == true) {
+                    item { TypingBubble() }
+                }
+                if (externalTyping && !isStreaming) {
+                    item { TypingBubble() }
+                }
             }
-            if (externalTyping && !isStreaming) {
-                item { TypingBubble() }
+            if (!isAtBottom && messages.isNotEmpty()) {
+                SmallFloatingActionButton(
+                    onClick          = { scope.launch { listState.animateScrollToItem(messages.size - 1) } },
+                    modifier         = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(12.dp),
+                    containerColor   = MaterialTheme.colorScheme.surface,
+                    contentColor     = NxFg2,
+                ) {
+                    Icon(Icons.Default.KeyboardArrowDown, "Scroll to bottom",
+                         modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
@@ -601,14 +696,16 @@ private fun TypingBubble() {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 private fun startListening(
-    speech:  SpeechRecognizerHelper,
-    chatVm:  ChatViewModel,
-    setFlag: (Boolean) -> Unit,
+    speech:    SpeechRecognizerHelper,
+    chatVm:    ChatViewModel,
+    setFlag:   (Boolean) -> Unit,
+    onPartial: (String) -> Unit = {},
 ) {
     setFlag(true)
     speech.startListening(
-        onResult = { text -> setFlag(false); chatVm.sendMessage(text) },
-        onError  = { setFlag(false) },
+        onResult  = { text -> setFlag(false); onPartial(""); chatVm.sendMessage(text) },
+        onError   = { setFlag(false); onPartial("") },
+        onPartial = onPartial,
     )
 }
 
@@ -622,5 +719,17 @@ private fun uriToPendingImage(context: Context, uri: Uri): PendingImage? = try {
     val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
     val b64      = "data:$mimeType;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
     val name     = uri.lastPathSegment ?: "image.jpg"
-    PendingImage(uri = uri, base64 = b64, mimeType = mimeType, name = name)
+    PendingImage(uri = uri, base64 = b64, mimeType = mimeType, name = name, isImage = true)
+} catch (e: Exception) { null }
+
+private fun uriToAttachment(context: Context, uri: Uri): PendingImage? = try {
+    val bytes    = context.contentResolver.openInputStream(uri)?.readBytes() ?: return null
+    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+    val isImage  = mimeType.startsWith("image/")
+    val b64      = if (isImage)
+        "data:$mimeType;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+    else
+        bytes.toString(Charsets.UTF_8).take(8000)   // server expects raw text for non-images
+    val name     = uri.lastPathSegment ?: "file"
+    PendingImage(uri = uri, base64 = b64, mimeType = mimeType, name = name, isImage = isImage)
 } catch (e: Exception) { null }
