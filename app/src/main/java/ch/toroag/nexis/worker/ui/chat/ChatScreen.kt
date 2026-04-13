@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
@@ -84,6 +85,7 @@ private data class PendingImage(
 @Composable
 fun ChatScreen(
     onNavigateToSettings: () -> Unit,
+    onNavigateToVoice:    () -> Unit = {},
     chatVm: ChatViewModel = viewModel(),
 ) {
     val context         = LocalContext.current
@@ -194,6 +196,9 @@ fun ChatScreen(
                 actions = {
                     IconButton(onClick = { showClearConfirm = true }) {
                         Icon(Icons.Default.Edit, "New conversation", tint = NxFg2)
+                    }
+                    IconButton(onClick = onNavigateToVoice) {
+                        Icon(Icons.Default.RecordVoiceOver, "Voice conversation", tint = NxFg2)
                     }
                     IconButton(onClick = { chatVm.toggleVoice(!voiceEnabled) }) {
                         Icon(

@@ -1,11 +1,13 @@
 package ch.toroag.nexis.worker.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,8 +27,11 @@ import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack:   () -> Unit,
-    onLogout: () -> Unit,
+    onBack:           () -> Unit,
+    onLogout:         () -> Unit,
+    onNavigateToMemories:  () -> Unit = {},
+    onNavigateToHistory:   () -> Unit = {},
+    onNavigateToSchedules: () -> Unit = {},
     vm: SettingsViewModel = viewModel(),
 ) {
     val baseUrl       by vm.baseUrl.collectAsState()
@@ -162,6 +167,15 @@ fun SettingsScreen(
                 }
             }
 
+            // Tools navigation
+            SettingsCard(label = "tools") {
+                NavRow("memories", onNavigateToMemories)
+                Spacer(Modifier.height(8.dp))
+                NavRow("conversation history", onNavigateToHistory)
+                Spacer(Modifier.height(8.dp))
+                NavRow("schedules", onNavigateToSchedules)
+            }
+
             // Re-authenticate
             SettingsCard(label = "re-authenticate") {
                 Text(
@@ -218,6 +232,26 @@ fun SettingsScreen(
                     1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
             ) { Text("disconnect") }
         }
+    }
+}
+
+@Composable
+private fun NavRow(label: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment     = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = NxFg)
+        Icon(
+            Icons.Default.KeyboardArrowRight,
+            contentDescription = null,
+            tint     = NxFg2,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 

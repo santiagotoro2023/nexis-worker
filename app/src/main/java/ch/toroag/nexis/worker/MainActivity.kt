@@ -17,8 +17,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import ch.toroag.nexis.worker.data.PreferencesRepository
 import ch.toroag.nexis.worker.ui.chat.ChatScreen
+import ch.toroag.nexis.worker.ui.history.HistoryScreen
 import ch.toroag.nexis.worker.ui.login.LoginScreen
+import ch.toroag.nexis.worker.ui.memories.MemoriesScreen
+import ch.toroag.nexis.worker.ui.schedules.SchedulesScreen
 import ch.toroag.nexis.worker.ui.settings.SettingsScreen
+import ch.toroag.nexis.worker.ui.voice.VoiceScreen
 import ch.toroag.nexis.worker.ui.theme.NexisTheme
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxFg2
@@ -239,18 +243,41 @@ private fun NexisApp() {
         }
         composable("chat") {
             ChatScreen(
-                onNavigateToSettings = { navController.navigate("settings") }
+                onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToVoice    = { navController.navigate("voice") },
             )
         }
         composable("settings") {
             SettingsScreen(
-                onBack   = { navController.popBackStack() },
-                onLogout = {
+                onBack                = { navController.popBackStack() },
+                onLogout              = {
                     navController.navigate("login") {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onNavigateToMemories  = { navController.navigate("memories") },
+                onNavigateToHistory   = { navController.navigate("history") },
+                onNavigateToSchedules = { navController.navigate("schedules") },
             )
+        }
+        composable("voice") {
+            VoiceScreen(onBack = { navController.popBackStack() })
+        }
+        composable("memories") {
+            MemoriesScreen(onBack = { navController.popBackStack() })
+        }
+        composable("history") {
+            HistoryScreen(
+                onBack          = { navController.popBackStack() },
+                onSessionLoaded = {
+                    navController.navigate("chat") {
+                        popUpTo("chat") { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable("schedules") {
+            SchedulesScreen(onBack = { navController.popBackStack() })
         }
     }
 }

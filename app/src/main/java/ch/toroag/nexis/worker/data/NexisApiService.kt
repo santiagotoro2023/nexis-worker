@@ -236,6 +236,117 @@ class NexisApiService(
         } catch (e: Exception) { null }
     }
 
+    // ── Memories ──────────────────────────────────────────────────────────────
+
+    data class MemoryEntry(val id: Int, val content: String, val createdAt: String)
+
+    fun getMemories(baseUrl: String, token: String): List<MemoryEntry> {
+        val req = Request.Builder().url("$baseUrl/api/memories").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val arr = JSONObject(resp.body!!.string()).getJSONArray("memories")
+                (0 until arr.length()).map {
+                    val o = arr.getJSONObject(it)
+                    MemoryEntry(o.getInt("id"), o.getString("content"), o.optString("created_at"))
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun deleteMemory(baseUrl: String, token: String, id: Int) {
+        val body = JSONObject().put("action", "delete").put("id", id).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/memories").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
+    // ── History sessions ──────────────────────────────────────────────────────
+
+    data class SessionMessage(val role: String, val content: String)
+    data class SessionSummary(
+        val sessionId: String,
+        val started:   String,
+        val source:    String,
+        val preview:   List<SessionMessage>,
+    )
+
+    fun getHistorySessions(baseUrl: String, token: String): List<SessionSummary> {
+        val req = Request.Builder().url("$baseUrl/api/history/sessions").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val arr = JSONObject(resp.body!!.string()).getJSONArray("sessions")
+                (0 until arr.length()).map {
+                    val o    = arr.getJSONObject(it)
+                    val prev = o.getJSONArray("preview")
+                    SessionSummary(
+                        sessionId = o.getString("session_id"),
+                        started   = o.getString("started"),
+                        source    = o.optString("source", "web"),
+                        preview   = (0 until prev.length()).map { i ->
+                            val m = prev.getJSONObject(i)
+                            SessionMessage(m.getString("role"), m.getString("content"))
+                        },
+                    )
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun loadHistorySession(baseUrl: String, token: String, sessionId: String) {
+        val body = JSONObject().put("session_id", sessionId).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/history/load").post(body).withBearer(token).build()
+        standardClient.newCall(req).execute().close()
+    }
+
+    // ── Schedules ─────────────────────────────────────────────────────────────
+
+    data class ScheduleEntry(
+        val id:      Int,
+        val name:    String,
+        val expr:    String,
+        val prompt:  String,
+        val active:  Boolean,
+        val lastRun: String?,
+    )
+
+    fun getSchedules(baseUrl: String, token: String): List<ScheduleEntry> {
+        val req = Request.Builder().url("$baseUrl/api/schedules").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val arr = JSONObject(resp.body!!.string()).getJSONArray("schedules")
+                (0 until arr.length()).map {
+                    val o = arr.getJSONObject(it)
+                    ScheduleEntry(
+                        id      = o.getInt("id"),
+                        name    = o.optString("name", ""),
+                        expr    = o.optString("expr", ""),
+                        prompt  = o.optString("prompt", ""),
+                        active  = o.optBoolean("active", true),
+                        lastRun = if (o.isNull("last_run")) null else o.optString("last_run"),
+                    )
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun scheduleAction(baseUrl: String, token: String, action: String, id: Int? = null,
+                       name: String? = null, expr: String? = null, prompt: String? = null,
+                       active: Boolean? = null) {
+        val obj = JSONObject().put("action", action)
+        if (id     != null) obj.put("id", id)
+        if (name   != null) obj.put("name", name)
+        if (expr   != null) obj.put("expr", expr)
+        if (prompt != null) obj.put("prompt", prompt)
+        if (active != null) obj.put("active", active)
+        val body = obj.toString().toRequestBody("application/json".toMediaType())
+        val req  = Request.Builder().url("$baseUrl/api/schedules").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
     /** Clears the active conversation on the server (keeps memories/history). */
     fun clearConversation(baseUrl: String, token: String) {
         val req = Request.Builder().url("$baseUrl/api/clear")
