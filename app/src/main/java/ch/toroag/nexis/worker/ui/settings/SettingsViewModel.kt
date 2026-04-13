@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -31,6 +32,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _healthLoading = MutableStateFlow(false)
     val healthLoading: StateFlow<Boolean> = _healthLoading
+
+    val ntfyTopic = prefs.ntfyTopic
 
     init {
         viewModelScope.launch {
@@ -76,6 +79,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         CertPinStore.clearPin(getApplication())
         _certPin.value = null
         _status.value = "Certificate cleared — next connection will re-pair"
+    }
+
+    fun saveNtfyTopic(topic: String) {
+        viewModelScope.launch { prefs.saveNtfyTopic(topic) }
     }
 
     fun clearStatus() { _status.value = null }

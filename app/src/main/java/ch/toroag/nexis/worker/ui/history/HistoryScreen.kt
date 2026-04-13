@@ -116,7 +116,8 @@ fun HistoryScreen(
 @Composable
 private fun SessionItem(session: HistorySession, onClick: () -> Unit) {
     val firstUserMsg = session.preview.firstOrNull { it.role == "user" }?.content ?: ""
-    val preview = if (firstUserMsg.length > 80) firstUserMsg.take(80) + "…" else firstUserMsg
+    val preview = if (firstUserMsg.length > 90) firstUserMsg.take(90) + "…" else firstUserMsg
+    val displayTitle = session.title.ifBlank { null }
 
     Row(
         Modifier
@@ -138,13 +139,23 @@ private fun SessionItem(session: HistorySession, onClick: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
             )
         }
-        Text(
-            preview.ifBlank { "(empty)" },
-            color    = NxFg,
-            style    = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (displayTitle != null) {
+                Text(
+                    displayTitle,
+                    color    = NxFg,
+                    style    = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                preview.ifBlank { "(empty)" },
+                color    = if (displayTitle != null) NxFg2 else NxFg,
+                style    = MaterialTheme.typography.labelSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

@@ -14,8 +14,9 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class PreferencesRepository(private val context: Context) {
 
     companion object {
-        private val BASE_URL_KEY = stringPreferencesKey("base_url")
-        private val TOKEN_KEY    = stringPreferencesKey("bearer_token")
+        private val BASE_URL_KEY   = stringPreferencesKey("base_url")
+        private val TOKEN_KEY      = stringPreferencesKey("bearer_token")
+        private val NTFY_TOPIC_KEY = stringPreferencesKey("ntfy_topic")
 
         @Volatile private var instance: PreferencesRepository? = null
         fun get(context: Context): PreferencesRepository =
@@ -24,8 +25,9 @@ class PreferencesRepository(private val context: Context) {
             }
     }
 
-    val baseUrl: Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY] ?: "" }
-    val token:   Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]    ?: "" }
+    val baseUrl:   Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY]   ?: "" }
+    val token:     Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]      ?: "" }
+    val ntfyTopic: Flow<String> = context.dataStore.data.map { it[NTFY_TOPIC_KEY] ?: "" }
 
     suspend fun saveCredentials(baseUrl: String, token: String) {
         context.dataStore.edit { prefs ->
@@ -40,6 +42,10 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun clearToken() {
         context.dataStore.edit { prefs -> prefs.remove(TOKEN_KEY) }
+    }
+
+    suspend fun saveNtfyTopic(topic: String) {
+        context.dataStore.edit { prefs -> prefs[NTFY_TOPIC_KEY] = topic.trim() }
     }
 
 }

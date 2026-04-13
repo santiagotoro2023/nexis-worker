@@ -268,6 +268,7 @@ class NexisApiService(
         val sessionId: String,
         val started:   String,
         val source:    String,
+        val title:     String,
         val preview:   List<SessionMessage>,
     )
 
@@ -284,6 +285,7 @@ class NexisApiService(
                         sessionId = o.getString("session_id"),
                         started   = o.getString("started"),
                         source    = o.optString("source", "web"),
+                        title     = o.optString("title", ""),
                         preview   = (0 until prev.length()).map { i ->
                             val m = prev.getJSONObject(i)
                             SessionMessage(m.getString("role"), m.getString("content"))
