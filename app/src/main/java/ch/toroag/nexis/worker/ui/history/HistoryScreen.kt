@@ -1,7 +1,8 @@
 package ch.toroag.nexis.worker.ui.history
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     onBack:          () -> Unit,
@@ -30,6 +31,7 @@ fun HistoryScreen(
     val error     by vm.errorMessage.collectAsState()
 
     var confirmSession by remember { mutableStateOf<HistorySession?>(null) }
+    var confirmDelete  by remember { mutableStateOf<HistorySession?>(null) }
 
     if (confirmSession != null) {
         val session = confirmSession!!
@@ -53,6 +55,27 @@ fun HistoryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmSession = null }) {
+                    Text("cancel", color = NxFg2)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+        )
+    }
+
+    if (confirmDelete != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("delete session?", color = NxFg) },
+            text  = { Text("permanently remove this conversation from history?", color = NxFg2,
+                           style = MaterialTheme.typography.bodySmall) },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteSession(confirmDelete!!.sessionId)
+                    confirmDelete = null
+                }) { Text("delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) {
                     Text("cancel", color = NxFg2)
                 }
             },
@@ -105,7 +128,11 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(sessions, key = { it.sessionId }) { session ->
-                        SessionItem(session = session, onClick = { confirmSession = session })
+                        SessionItem(
+                            session     = session,
+                            onClick     = { confirmSession = session },
+                            onLongPress = { confirmDelete = session },
+                        )
                     }
                 }
             }
@@ -113,8 +140,9 @@ fun HistoryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SessionItem(session: HistorySession, onClick: () -> Unit) {
+private fun SessionItem(session: HistorySession, onClick: () -> Unit, onLongPress: () -> Unit = {}) {
     val firstUserMsg = session.preview.firstOrNull { it.role == "user" }?.content ?: ""
     val preview = if (firstUserMsg.length > 90) firstUserMsg.take(90) + "…" else firstUserMsg
     val displayTitle = session.title.ifBlank { null }
@@ -123,7 +151,7 @@ private fun SessionItem(session: HistorySession, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .background(NxBg3, RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment     = Alignment.Top,

@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -73,11 +72,11 @@ import java.util.Locale
 private val TIME_FMT = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 private val QUICK_ACTIONS = listOf(
-    "Brief me" to "Give me a quick morning briefing — time, anything relevant you know about me, and one thing worth knowing today.",
-    "What time is it?" to "What time and date is it right now?",
-    "Summarize conversation" to "Summarize our conversation so far in a few sentences.",
-    "What do you remember?" to "What do you remember about me? List your most relevant memories.",
-    "What's the weather?" to "What's the current weather where I am?",
+    "//brief"     to "//brief",
+    "//compact"   to "//compact",
+    "//status"    to "//status",
+    "open windows on PC" to "what windows are currently open on my desktop?",
+    "summarize chat"     to "summarize our conversation so far in a few sentences",
 )
 
 // ── Pending attachment ─────────────────────────────────────────────────────────
@@ -205,22 +204,13 @@ fun ChatScreen(
                             painter     = painterResource(R.drawable.ic_nexis_logo),
                             contentDescription = "NeXiS",
                             colorFilter = ColorFilter.tint(NxOrange),
-                            modifier    = Modifier.size(28.dp),
+                            modifier    = Modifier.size(26.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                "NeXiS",
-                                style         = MaterialTheme.typography.titleMedium,
-                                color         = NxOrange,
-                                fontWeight    = FontWeight.Bold,
-                                letterSpacing = 2.sp,
-                            )
-                            if (currentModel.isNotEmpty())
-                                Text(currentModel,
-                                     style = MaterialTheme.typography.labelSmall,
-                                     color = NxFg2)
-                        }
+                        if (currentModel.isNotEmpty())
+                            Text(currentModel,
+                                 style = MaterialTheme.typography.labelSmall,
+                                 color = NxFg2)
                         Spacer(Modifier.width(6.dp))
                         // Connection status dot
                         Box(
@@ -497,9 +487,9 @@ fun ChatScreen(
                 contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(messages, key = { it.id }) { msg -> MessageBubble(msg, context) }
-                if (isStreaming && messages.lastOrNull()?.content?.isEmpty() == true) {
-                    item { TypingBubble() }
+                items(messages, key = { it.id }) { msg ->
+                    val showLoading = isStreaming && msg.id == messages.lastOrNull()?.id && msg.content.isEmpty()
+                    MessageBubble(msg, context, isLoading = showLoading)
                 }
                 if (externalTyping && !isStreaming) {
                     item { TypingBubble() }
@@ -613,7 +603,7 @@ fun ChatScreen(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(msg: ChatMessage, context: Context) {
+private fun MessageBubble(msg: ChatMessage, context: Context, isLoading: Boolean = false) {
     val isUser    = msg.role == "user"
     val timeLabel = TIME_FMT.format(Date(msg.id))
     Row(
@@ -641,8 +631,12 @@ private fun MessageBubble(msg: ChatMessage, context: Context) {
                             onLongClick = { copyToClipboard(context, msg.content) },
                         ),
                 ) {
-                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        RenderedMessage(msg.content)
+                    if (isLoading) {
+                        TypingIndicatorDots()
+                    } else {
+                        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                            RenderedMessage(msg.content)
+                        }
                     }
                 }
                 Text(
@@ -671,12 +665,12 @@ private fun MessageBubble(msg: ChatMessage, context: Context) {
                         ),
                 ) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        if (msg.hasImage) {
+                        if (msg.hasImage || msg.isDocument) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.AttachFile, null,
                                      tint = NxOrange, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("image attached",
+                                Text(if (msg.isDocument) "document attached" else "image attached",
                                      style = MaterialTheme.typography.labelSmall,
                                      color = NxOrangeDim)
                             }

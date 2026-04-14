@@ -14,10 +14,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 data class ChatMessage(
-    val role:      String,   // "user" | "assistant"
-    val content:   String,
-    val id:        Long = System.currentTimeMillis(),
-    val hasImage:  Boolean = false,
+    val role:       String,   // "user" | "assistant"
+    val content:    String,
+    val id:         Long = System.currentTimeMillis(),
+    val hasImage:   Boolean = false,
+    val isDocument: Boolean = false,
 )
 
 enum class ConnectionStatus { Connected, Connecting, Disconnected }
@@ -136,9 +137,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         if (_isStreaming.value || (text.isBlank() && imageBase64 == null)) return
         viewModelScope.launch(Dispatchers.IO) {
-            val displayText = text.ifBlank { "[Image]" }
-            _messages.value = _messages.value + ChatMessage("user", displayText,
-                hasImage = imageBase64 != null)
+            val isDoc       = imageBase64 != null && (imageMimeType == null || !imageMimeType.startsWith("image/"))
+            val displayText = text.ifBlank { if (isDoc) "[File]" else "[Image]" }
+            _messages.value = _messages.value + ChatMessage(
+                role       = "user",
+                content    = displayText,
+                hasImage   = imageBase64 != null && !isDoc,
+                isDocument = isDoc,
+            )
             val assistantId = System.currentTimeMillis() + 1
             _messages.value = _messages.value + ChatMessage("assistant", "", assistantId)
             _isStreaming.value = true
@@ -156,6 +162,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 onToken       = { tok ->
                     _messages.value = _messages.value.map { m ->
                         if (m.id == assistantId) m.copy(content = m.content + tok) else m
+                    }
+                },
+                onClear       = {
+                    // Server found tool tags — clear first-pass text and wait for real answer
+                    _messages.value = _messages.value.map { m ->
+                        if (m.id == assistantId) m.copy(content = "") else m
                     }
                 },
                 onAudioReady  = { chunkId -> audioPlayer?.enqueue(chunkId) },

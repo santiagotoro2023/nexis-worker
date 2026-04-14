@@ -295,15 +295,16 @@ private fun RemoteButton(
     onClick:  () -> Unit,
 ) {
     OutlinedButton(
-        onClick  = onClick,
-        modifier = modifier.height(44.dp),
-        enabled  = enabled,
-        shape    = RoundedCornerShape(4.dp),
-        colors   = ButtonDefaults.outlinedButtonColors(
+        onClick          = onClick,
+        modifier         = modifier.height(44.dp),
+        enabled          = enabled,
+        shape            = RoundedCornerShape(4.dp),
+        contentPadding   = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        colors           = ButtonDefaults.outlinedButtonColors(
             contentColor         = NxFg,
             disabledContentColor = NxFg2,
         ),
-        border   = androidx.compose.foundation.BorderStroke(
+        border           = androidx.compose.foundation.BorderStroke(
             1.dp, if (enabled) NxBorder else NxBorder.copy(alpha = 0.4f)),
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = NxOrange)

@@ -62,10 +62,11 @@ class NexisApiService(
         baseUrl:      String,
         token:        String,
         msg:          String,
-        fileData:     String?  = null,
-        fileMimeType: String?  = null,
-        fileName:     String?  = null,
+        fileData:     String?     = null,
+        fileMimeType: String?     = null,
+        fileName:     String?     = null,
         onToken:      (String) -> Unit,
+        onClear:      () -> Unit  = {},
         onAudioReady: (Int) -> Unit,
         onDone:       () -> Unit,
         onError:      (String) -> Unit,
@@ -96,7 +97,8 @@ class NexisApiService(
                             val id = data.removeSurrounding("[AUDIOREADY:", "]").toIntOrNull()
                             if (id != null) onAudioReady(id)
                         }
-                        data.startsWith("[STATUS:") || data == "[CLEAR]" -> {}
+                        data == "[CLEAR]" -> onClear()
+                        data.startsWith("[STATUS:") -> {}
                         else -> onToken(data.replace('\u0000', '\n'))
                     }
                 }
@@ -301,6 +303,13 @@ class NexisApiService(
             .toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$baseUrl/api/history/load").post(body).withBearer(token).build()
         standardClient.newCall(req).execute().close()
+    }
+
+    fun deleteHistorySession(baseUrl: String, token: String, sessionId: String) {
+        val body = JSONObject().put("action", "delete").put("session_id", sessionId).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/history/sessions").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
     }
 
     // ── Schedules ─────────────────────────────────────────────────────────────

@@ -61,5 +61,13 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { api.deleteHistorySession(baseUrl, token, sessionId) }
+                .onSuccess { _sessions.value = _sessions.value.filter { it.sessionId != sessionId } }
+                .onFailure { _errorMessage.value = it.message }
+        }
+    }
+
     fun clearError() { _errorMessage.value = null }
 }

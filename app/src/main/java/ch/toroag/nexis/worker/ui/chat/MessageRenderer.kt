@@ -311,7 +311,7 @@ fun TypingIndicatorDots() {
     ) {
         repeat(3) { i ->
             Text(
-                "▶",
+                "▲",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                 color = if (i < step) NxOrange else NxOrangeDim.copy(alpha = 0.25f),
             )
