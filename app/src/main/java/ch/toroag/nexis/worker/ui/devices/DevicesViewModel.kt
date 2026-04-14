@@ -28,6 +28,10 @@ class DevicesViewModel(app: Application) : AndroidViewModel(app) {
     private val _probeLoading = MutableStateFlow(false)
     val probeLoading: StateFlow<Boolean> = _probeLoading
 
+    /** Map of deviceId → saved password, loaded from DataStore. */
+    private val _passwords = MutableStateFlow<Map<String, String>>(emptyMap())
+    val passwords: StateFlow<Map<String, String>> = _passwords
+
     private var baseUrl = ""
     private var token   = ""
 
@@ -59,12 +63,31 @@ class DevicesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             _probeLoading.value = true
             _probeOutput.value  = if (dev.deviceType == "desktop" && dev.online)
-                api.probeController(baseUrl, token)   // live system probe for online PCs
+                api.probeController(baseUrl, token)
             else
-                api.probeDevice(baseUrl, token, dev.deviceId)  // last-known from DB
+                api.probeDevice(baseUrl, token, dev.deviceId)
             _probeLoading.value = false
         }
     }
 
     fun clearProbe() { _probeOutput.value = null }
+
+    /** Save the unlock password for a specific device to local DataStore. */
+    fun saveDevicePassword(deviceId: String, password: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            prefs.saveDevicePassword(deviceId, password)
+            // Refresh the in-memory map so the UI updates
+            val updated = _passwords.value.toMutableMap()
+            updated[deviceId] = password
+            _passwords.value = updated
+        }
+    }
+
+    /** Load saved passwords from DataStore into memory for all known devices. */
+    fun loadPasswords(deviceIds: List<String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val map = deviceIds.associateWith { prefs.getDevicePassword(it) }
+            _passwords.value = map
+        }
+    }
 }

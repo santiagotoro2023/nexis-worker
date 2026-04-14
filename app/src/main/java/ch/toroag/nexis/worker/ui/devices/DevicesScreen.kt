@@ -3,9 +3,9 @@ package ch.toroag.nexis.worker.ui.devices
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -14,6 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,6 +33,12 @@ fun DevicesScreen(
     val isLoading    by vm.isLoading.collectAsState()
     val probeOutput  by vm.probeOutput.collectAsState()
     val probeLoading by vm.probeLoading.collectAsState()
+    val passwords    by vm.passwords.collectAsState()
+
+    // Load saved passwords whenever the device list changes
+    LaunchedEffect(devices) {
+        if (devices.isNotEmpty()) vm.loadPasswords(devices.map { it.deviceId })
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -61,9 +70,11 @@ fun DevicesScreen(
             ) {
                 items(devices) { dev ->
                     DeviceCard(
-                        dev       = dev,
-                        onSetRole = { role -> vm.setRole(dev.deviceId, role) },
-                        onProbe   = { vm.probeDevice(dev) },
+                        dev           = dev,
+                        savedPassword = passwords[dev.deviceId] ?: "",
+                        onSetRole     = { role -> vm.setRole(dev.deviceId, role) },
+                        onProbe       = { vm.probeDevice(dev) },
+                        onSavePassword = { pw -> vm.saveDevicePassword(dev.deviceId, pw) },
                     )
                 }
                 if (devices.isEmpty()) {
@@ -76,12 +87,11 @@ fun DevicesScreen(
                         )
                     }
                 }
-                // Probe output panel
                 if (probeOutput != null || probeLoading) {
                     item {
                         ProbePanel(
-                            output  = probeOutput,
-                            loading = probeLoading,
+                            output    = probeOutput,
+                            loading   = probeLoading,
                             onDismiss = { vm.clearProbe() },
                         )
                     }
@@ -92,11 +102,7 @@ fun DevicesScreen(
 }
 
 @Composable
-private fun ProbePanel(
-    output:    String?,
-    loading:   Boolean,
-    onDismiss: () -> Unit,
-) {
+private fun ProbePanel(output: String?, loading: Boolean, onDismiss: () -> Unit) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape    = RoundedCornerShape(4.dp),
@@ -113,7 +119,7 @@ private fun ProbePanel(
             }
             if (loading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
+                    CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                     Text("probing…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
                 }
@@ -121,8 +127,7 @@ private fun ProbePanel(
                 Text(
                     output,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 15.sp,
-                    ),
+                        fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 15.sp),
                     color = NxFg,
                 )
             }
@@ -132,11 +137,15 @@ private fun ProbePanel(
 
 @Composable
 private fun DeviceCard(
-    dev:       NexisApiService.DeviceInfo,
-    onSetRole: (String) -> Unit,
-    onProbe:   () -> Unit,
+    dev:            NexisApiService.DeviceInfo,
+    savedPassword:  String,
+    onSetRole:      (String) -> Unit,
+    onProbe:        () -> Unit,
+    onSavePassword: (String) -> Unit,
 ) {
     val dotColor = if (dev.online) NxGreen else NxFg2
+    var passwordInput by remember(savedPassword) { mutableStateOf(savedPassword) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -152,33 +161,33 @@ private fun DeviceCard(
                 Spacer(Modifier.width(8.dp))
                 Text(dev.hostname, style = MaterialTheme.typography.titleSmall, color = NxFg)
                 Spacer(Modifier.weight(1f))
-                val typeIcon = if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid
-                               else Icons.Default.Computer
-                Icon(typeIcon, null, Modifier.size(16.dp), tint = NxFg2)
+                Icon(
+                    if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid else Icons.Default.Computer,
+                    null, Modifier.size(16.dp), tint = NxFg2,
+                )
             }
 
-            // OS / arch
-            Text("${dev.os} · ${dev.arch}",
-                 style = MaterialTheme.typography.labelSmall, color = NxFg2)
+            Text("${dev.os} · ${dev.arch}", style = MaterialTheme.typography.labelSmall, color = NxFg2)
 
-            // IP + last seen
             if (dev.ip.isNotEmpty()) {
                 Text("ip: ${dev.ip}  ·  last seen: ${dev.lastSeen.take(16)}",
                      style = MaterialTheme.typography.labelSmall, color = NxFg2)
             }
 
-            // Device ID (truncated)
             Text("id: ${dev.deviceId.take(8)}…",
                  style = MaterialTheme.typography.labelSmall, color = NxFg2)
 
-            // Battery (mobile)
+            if (!dev.mac.isNullOrEmpty()) {
+                Text("mac: ${dev.mac}", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+            }
+
             if (dev.batteryPct != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val battIcon = when {
-                        dev.charging == true          -> Icons.Default.BatteryChargingFull
-                        (dev.batteryPct ?: 0) > 50    -> Icons.Default.BatteryFull
-                        (dev.batteryPct ?: 0) > 20    -> Icons.Default.Battery3Bar
-                        else                          -> Icons.Default.Battery1Bar
+                        dev.charging == true       -> Icons.Default.BatteryChargingFull
+                        (dev.batteryPct) > 50      -> Icons.Default.BatteryFull
+                        (dev.batteryPct) > 20      -> Icons.Default.Battery3Bar
+                        else                       -> Icons.Default.Battery1Bar
                     }
                     Icon(battIcon, null, Modifier.size(14.dp), tint = NxFg2)
                     Spacer(Modifier.width(4.dp))
@@ -187,9 +196,70 @@ private fun DeviceCard(
                 }
             }
 
-            // Role badge
             if (dev.role != null) {
                 Text(dev.role, style = MaterialTheme.typography.labelSmall, color = NxOrange)
+            }
+
+            // ── Password field (desktop only) ──────────────────────────────────
+            if (dev.deviceType == "desktop") {
+                HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
+                Text("unlock password", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value         = passwordInput,
+                        onValueChange = { passwordInput = it },
+                        modifier      = Modifier.weight(1f),
+                        singleLine    = true,
+                        shape         = RoundedCornerShape(4.dp),
+                        textStyle     = MaterialTheme.typography.bodySmall,
+                        placeholder   = { Text("leave blank if none", style = MaterialTheme.typography.bodySmall,
+                                              color = NxFg2.copy(alpha = 0.5f)) },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None
+                                               else PasswordVisualTransformation(),
+                        trailingIcon  = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible },
+                                       modifier = Modifier.size(20.dp)) {
+                                Icon(
+                                    if (passwordVisible) Icons.Default.VisibilityOff
+                                    else Icons.Default.Visibility,
+                                    null, Modifier.size(14.dp), tint = NxFg2,
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor      = NxOrangeDim,
+                            unfocusedBorderColor    = NxBorder,
+                            focusedTextColor        = NxFg,
+                            unfocusedTextColor      = NxFg,
+                            cursorColor             = NxOrange,
+                            focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { onSavePassword(passwordInput) }),
+                    )
+                    OutlinedButton(
+                        onClick  = { onSavePassword(passwordInput) },
+                        modifier = Modifier.height(40.dp),
+                        shape    = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
+                        border   = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
+                    ) {
+                        Icon(Icons.Default.Save, null, Modifier.size(14.dp), tint = NxOrange)
+                        Spacer(Modifier.width(4.dp))
+                        Text("save", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (savedPassword.isNotEmpty()) {
+                    Text("✓ password saved — used automatically for unlock",
+                         style = MaterialTheme.typography.labelSmall,
+                         color = NxGreen.copy(alpha = 0.8f))
+                }
             }
 
             HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
@@ -205,9 +275,7 @@ private fun DeviceCard(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
                         border = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
-                    ) {
-                        Text("set primary PC", style = MaterialTheme.typography.labelSmall)
-                    }
+                    ) { Text("set primary PC", style = MaterialTheme.typography.labelSmall) }
                 }
                 if (dev.deviceType == "mobile" && dev.role != "primary_mobile") {
                     OutlinedButton(
@@ -217,9 +285,7 @@ private fun DeviceCard(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
                         border = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
-                    ) {
-                        Text("set primary mobile", style = MaterialTheme.typography.labelSmall)
-                    }
+                    ) { Text("set primary mobile", style = MaterialTheme.typography.labelSmall) }
                 }
                 OutlinedButton(
                     onClick = onProbe,
@@ -228,9 +294,7 @@ private fun DeviceCard(
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
                     border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
-                ) {
-                    Text("probe", style = MaterialTheme.typography.labelSmall)
-                }
+                ) { Text("probe", style = MaterialTheme.typography.labelSmall) }
             }
         }
     }

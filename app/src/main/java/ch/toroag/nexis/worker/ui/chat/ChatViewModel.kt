@@ -129,7 +129,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 } catch (_: Exception) {}
-                delay(10_000)
+                delay(2_000)
             }
         }
     }
