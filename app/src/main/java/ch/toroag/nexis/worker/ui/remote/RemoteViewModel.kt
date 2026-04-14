@@ -54,14 +54,24 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     fun loadDevices() {
         viewModelScope.launch(Dispatchers.IO) {
             _devicesLoading.value = true
+            // Show cached devices immediately — WOL button is available even before
+            // the network call completes (or when the server is unreachable).
+            val cached = parseCachedDevices(prefs.getCachedDevices())
+            if (cached.isNotEmpty() && _devices.value.isEmpty()) {
+                _devices.value = cached
+                val cur = _selectedDevice.value
+                if (cur == null || cur !in cached) {
+                    _selectedDevice.value = cached.firstOrNull { it.role == "primary_pc" }
+                        ?: cached.firstOrNull()
+                }
+            }
+            // Try to refresh from server
             val live = runCatching { api.getDevices(baseUrl, token) }.getOrNull()
             val all = if (!live.isNullOrEmpty()) {
-                // Cache for offline WOL
                 prefs.saveCachedDevices(live.toJson())
                 live
             } else {
-                // Server unreachable — use last-known device list
-                parseCachedDevices(prefs.getCachedDevices())
+                cached   // server unreachable — stick with cached (already shown)
             }
             _devices.value = all
             val cur = _selectedDevice.value
