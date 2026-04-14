@@ -34,7 +34,6 @@ fun RemoteScreen(
     var clipboardInput by remember { mutableStateOf("") }
     var urlInput       by remember { mutableStateOf("") }
     var notifyInput    by remember { mutableStateOf("") }
-    var unlockPassword by remember { mutableStateOf("") }
     var volumeSlider   by remember { mutableFloatStateOf(50f) }
     var deviceDropdown by remember { mutableStateOf(false) }
 
@@ -162,19 +161,6 @@ fun RemoteScreen(
                 }
             }
 
-            // ── WOL — offline PC only ──────────────────────────────────────────
-            if (isDesktop && isOffline) {
-                RemoteSection("wake on lan") {
-                    val hasMac = selectedDevice?.mac?.isNotEmpty() == true
-                    RemoteButton(
-                        label    = if (hasMac) "send magic packet (WOL)" else "WOL — no MAC recorded yet",
-                        icon     = Icons.Default.PowerSettingsNew,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled  = hasMac && !isLoading,
-                    ) { vm.wakeOnLan() }
-                }
-            }
-
             // ── Desktop controls ───────────────────────────────────────────────
             if (isDesktop) {
 
@@ -202,7 +188,6 @@ fun RemoteScreen(
                 }
 
                 RemoteSection("media") {
-                    // prev | play/pause | next
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
                             vm.action("media", "previous") }
@@ -212,7 +197,6 @@ fun RemoteScreen(
                             vm.action("media", "next") }
                     }
                     Spacer(Modifier.height(8.dp))
-                    // -10s | +10s
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         RemoteButton("−10s", Icons.Default.Replay10,  Modifier.weight(1f), !isLoading) {
                             vm.action("media", "seek_backward") }
@@ -273,34 +257,45 @@ fun RemoteScreen(
                         !isLoading) { vm.pasteFromPc() }
                 }
 
+                RemoteSection("notify") {
+                    OutlinedTextField(
+                        value         = notifyInput,
+                        onValueChange = { notifyInput = it },
+                        label         = { Text("notification text", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        maxLines      = 2,
+                        shape         = RoundedCornerShape(4.dp),
+                        colors        = nxFieldColors(),
+                        textStyle     = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    RemoteButton("send to PC", Icons.Default.Notifications, Modifier.fillMaxWidth(),
+                        notifyInput.isNotBlank() && !isLoading) { vm.action("notify", notifyInput.trim()) }
+                }
+
                 RemoteSection("system") {
-                    // lock ↔ unlock (logical pair)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         RemoteButton("lock screen", Icons.Default.Lock,     Modifier.weight(1f), !isLoading) {
                             vm.action("lock") }
                         RemoteButton("unlock",      Icons.Default.LockOpen, Modifier.weight(1f), !isLoading) {
-                            vm.action("unlock", unlockPassword) }
+                            vm.action("unlock") }
                     }
-                    // Password for unlock (compact, always visible)
-                    OutlinedTextField(
-                        value         = unlockPassword,
-                        onValueChange = { unlockPassword = it },
-                        label         = { Text("password for unlock (optional)", color = NxFg2) },
-                        modifier      = Modifier.fillMaxWidth().padding(top = 6.dp),
-                        singleLine    = true,
-                        shape         = RoundedCornerShape(4.dp),
-                        colors        = nxFieldColors(),
-                        textStyle     = MaterialTheme.typography.bodyMedium,
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    )
                     Spacer(Modifier.height(8.dp))
-                    // sleep ↔ wake (logical pair)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        RemoteButton("sleep",        Icons.Default.Bedtime,   Modifier.weight(1f), !isLoading) {
+                        RemoteButton("sleep",        Icons.Default.Bedtime,           Modifier.weight(1f), !isLoading) {
                             vm.action("sleep") }
-                        RemoteButton("wake display", Icons.Default.LightMode, Modifier.weight(1f), !isLoading) {
+                        RemoteButton("wake display", Icons.Default.LightMode,         Modifier.weight(1f), !isLoading) {
                             vm.action("wake") }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    // WOL always visible — sends UDP magic packet directly from phone (no server needed)
+                    val hasMac = selectedDevice?.mac?.isNotEmpty() == true
+                    RemoteButton(
+                        label   = if (hasMac) "wake on lan (direct UDP)" else "wake on lan — no MAC stored",
+                        icon    = Icons.Default.PowerSettingsNew,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = hasMac && !isLoading,
+                    ) { vm.wakeOnLan() }
                     Spacer(Modifier.height(8.dp))
                     RemoteButton("screenshot + describe", Icons.Default.Screenshot, Modifier.fillMaxWidth(),
                         !isLoading) { vm.action("screenshot") }
@@ -325,6 +320,13 @@ fun RemoteScreen(
                             vm.mobileCommand("media", "play-pause") }
                         RemoteButton("next",       Icons.Default.SkipNext,     Modifier.weight(1f), !isLoading) {
                             vm.mobileCommand("media", "next") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("−10s", Icons.Default.Replay10,  Modifier.weight(1f), !isLoading) {
+                            vm.mobileCommand("media", "seek_backward") }
+                        RemoteButton("+10s", Icons.Default.Forward10, Modifier.weight(1f), !isLoading) {
+                            vm.mobileCommand("media", "seek_forward") }
                     }
                 }
 
@@ -355,9 +357,9 @@ fun RemoteScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        RemoteButton("mute",   Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
+                        RemoteButton("mute", Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
                             vm.mobileCommand("volume", "0") }
-                        RemoteButton("max",    Icons.Default.VolumeUp,  Modifier.weight(1f), !isLoading) {
+                        RemoteButton("max",  Icons.Default.VolumeUp,  Modifier.weight(1f), !isLoading) {
                             vm.mobileCommand("volume", "100") }
                     }
                 }
@@ -366,7 +368,7 @@ fun RemoteScreen(
                     OutlinedTextField(
                         value         = urlInput,
                         onValueChange = { urlInput = it },
-                        label         = { Text("URL or package name", color = NxFg2) },
+                        label         = { Text("app name, package, or URL", color = NxFg2) },
                         modifier      = Modifier.fillMaxWidth(),
                         singleLine    = true,
                         shape         = RoundedCornerShape(4.dp),

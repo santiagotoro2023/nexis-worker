@@ -80,7 +80,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     loadModels()
                     initHistory()
                     registerThisDevice()
-                    // Polling starts/stops with app foreground state
+                    startCommandPolling()   // (re)start whenever credentials load
                 }
             }
         }
