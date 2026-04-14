@@ -6,6 +6,9 @@ import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
@@ -77,10 +80,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     loadModels()
                     initHistory()
                     registerThisDevice()
-                    startCommandPolling()
+                    // Polling starts/stops with app foreground state
                 }
             }
         }
+        // Start polling only when app is foregrounded; cancel when backgrounded.
+        // This is the primary battery-saving measure — the 2s loop only runs while visible.
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                if (baseUrl.isNotEmpty() && token.isNotEmpty()) startCommandPolling()
+            }
+            override fun onStop(owner: LifecycleOwner) { pollJob?.cancel() }
+        })
     }
 
     private fun registerThisDevice() {
