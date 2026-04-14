@@ -29,6 +29,8 @@ class AudioPlayer(
 
     fun enqueue(chunkId: Int) { queue.offer(chunkId) }
 
+    fun isPlaying(): Boolean = current != null || queue.isNotEmpty()
+
     fun stop() {
         current?.runCatching { stop(); release() }
         current = null

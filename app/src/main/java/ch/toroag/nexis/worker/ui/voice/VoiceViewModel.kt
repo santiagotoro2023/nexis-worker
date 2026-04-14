@@ -1,21 +1,20 @@
 package ch.toroag.nexis.worker.ui.voice
 
 import android.app.Application
-import android.speech.tts.TextToSpeech
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
+import ch.toroag.nexis.worker.ui.chat.AudioPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 enum class VoiceState { Idle, Listening, Thinking, Speaking }
 
-class VoiceViewModel(app: Application) : AndroidViewModel(app), TextToSpeech.OnInitListener {
+class VoiceViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = PreferencesRepository.get(app)
     private val api   = NexisApiService(prefs, app)
@@ -30,24 +29,19 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app), TextToSpeech.OnI
     val response:     StateFlow<String>     = _response
     val errorMessage: StateFlow<String?>    = _errorMessage
 
-    private var baseUrl = ""
-    private var token   = ""
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
+    private var baseUrl     = ""
+    private var token       = ""
+    private var audioPlayer: AudioPlayer? = null
 
     init {
-        tts = TextToSpeech(app, this)
         viewModelScope.launch {
             combine(prefs.baseUrl, prefs.token) { u, t -> u to t }.collect { (u, t) ->
                 baseUrl = u; token = t
+                if (u.isNotEmpty() && t.isNotEmpty()) {
+                    audioPlayer?.destroy()
+                    audioPlayer = AudioPlayer(api, u, t, getApplication<Application>().cacheDir)
+                }
             }
-        }
-    }
-
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.US
-            ttsReady = true
         }
     }
 
@@ -58,38 +52,31 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app), TextToSpeech.OnI
         _response.value   = ""
         _state.value      = VoiceState.Thinking
         viewModelScope.launch(Dispatchers.IO) {
+            // Enable server-side Piper voice so we get AUDIOREADY chunks
+            api.enableVoice(baseUrl, token, true)
             val sb = StringBuilder()
             api.streamChat(
                 baseUrl  = baseUrl,
                 token    = token,
                 msg      = text,
                 onToken  = { tok -> sb.append(tok); _response.value = sb.toString() },
-                onAudioReady = {},
-                onDone   = {
+                onAudioReady = { chunkId ->
                     _state.value = VoiceState.Speaking
-                    speak(sb.toString())
+                    audioPlayer?.enqueue(chunkId)
+                },
+                onDone   = {
+                    // AudioPlayer plays async; state returns to Idle when queue drains
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(300)
+                        while (audioPlayer?.isPlaying() == true) kotlinx.coroutines.delay(200)
+                        _state.value = VoiceState.Idle
+                    }
                 },
                 onError  = { err ->
                     _errorMessage.value = err
                     _state.value = VoiceState.Idle
                 },
             )
-        }
-    }
-
-    private fun speak(text: String) {
-        if (!ttsReady || tts == null) { _state.value = VoiceState.Idle; return }
-        // Strip markdown markers before speaking
-        val clean = text
-            .replace(Regex("```[\\s\\S]*?```"), "")
-            .replace(Regex("[*_#`>]"), "")
-            .trim()
-        tts!!.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "nx_resp")
-        // Poll until done — TTS has no coroutine-friendly callback in all API levels
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(300)
-            while (tts?.isSpeaking == true) kotlinx.coroutines.delay(200)
-            _state.value = VoiceState.Idle
         }
     }
 
@@ -103,14 +90,13 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app), TextToSpeech.OnI
     }
 
     fun stopSpeaking() {
-        tts?.stop()
+        audioPlayer?.stop()
         _state.value = VoiceState.Idle
     }
 
     fun clearError() { _errorMessage.value = null }
 
     override fun onCleared() {
-        tts?.stop()
-        tts?.shutdown()
+        audioPlayer?.destroy()
     }
 }

@@ -72,11 +72,9 @@ import java.util.Locale
 private val TIME_FMT = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 private val QUICK_ACTIONS = listOf(
-    "//brief"     to "//brief",
-    "//compact"   to "//compact",
-    "//status"    to "//status",
-    "open windows on PC" to "what windows are currently open on my desktop?",
-    "summarize chat"     to "summarize our conversation so far in a few sentences",
+    "//brief"   to "//brief",
+    "//compact" to "//compact",
+    "//status"  to "//status",
 )
 
 // ── Pending attachment ─────────────────────────────────────────────────────────
@@ -207,11 +205,6 @@ fun ChatScreen(
                             modifier    = Modifier.size(26.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        if (currentModel.isNotEmpty())
-                            Text(currentModel,
-                                 style = MaterialTheme.typography.labelSmall,
-                                 color = NxFg2)
-                        Spacer(Modifier.width(6.dp))
                         // Connection status dot
                         Box(
                             Modifier
