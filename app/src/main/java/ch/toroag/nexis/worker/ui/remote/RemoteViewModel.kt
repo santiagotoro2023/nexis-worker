@@ -115,4 +115,18 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             _isLoading.value = false
         }
     }
+
+    fun probeSelectedDevice() {
+        if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
+        val dev = _selectedDevice.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoading.value = true
+            _result.value    = ""
+            _result.value    = if (dev.deviceType == "desktop" && dev.online)
+                api.probeController(baseUrl, token)
+            else
+                api.probeDevice(baseUrl, token, dev.deviceId)
+            _isLoading.value = false
+        }
+    }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.ui.theme.*
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,9 +32,10 @@ fun RemoteScreen(
 
     var appInput       by remember { mutableStateOf("") }
     var clipboardInput by remember { mutableStateOf("") }
-    var volumeInput    by remember { mutableStateOf("50") }
     var urlInput       by remember { mutableStateOf("") }
     var notifyInput    by remember { mutableStateOf("") }
+    var unlockPassword by remember { mutableStateOf("") }
+    var volumeSlider   by remember { mutableFloatStateOf(50f) }
     var deviceDropdown by remember { mutableStateOf(false) }
 
     val isDesktop = selectedDevice?.deviceType == "desktop"
@@ -138,14 +140,25 @@ fun RemoteScreen(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                TextButton(
-                    onClick  = { vm.loadDevices() },
-                    modifier = Modifier.align(Alignment.End),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                ) {
-                    Icon(Icons.Default.Refresh, null, Modifier.size(12.dp), tint = NxFg2)
-                    Spacer(Modifier.width(4.dp))
-                    Text("refresh", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick  = { vm.probeSelectedDevice() },
+                        enabled  = selectedDevice != null && !isLoading,
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                    ) {
+                        Icon(Icons.Default.Info, null, Modifier.size(12.dp), tint = NxFg2)
+                        Spacer(Modifier.width(4.dp))
+                        Text("probe", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    }
+                    TextButton(
+                        onClick  = { vm.loadDevices() },
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                    ) {
+                        Icon(Icons.Default.Refresh, null, Modifier.size(12.dp), tint = NxFg2)
+                        Spacer(Modifier.width(4.dp))
+                        Text("refresh", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    }
                 }
             }
 
@@ -154,16 +167,11 @@ fun RemoteScreen(
                 RemoteSection("wake on lan") {
                     val hasMac = selectedDevice?.mac?.isNotEmpty() == true
                     RemoteButton(
-                        label   = if (hasMac) "send magic packet (WOL)" else "WOL unavailable — no MAC",
-                        icon    = Icons.Default.PowerSettingsNew,
+                        label    = if (hasMac) "send magic packet (WOL)" else "WOL — no MAC recorded yet",
+                        icon     = Icons.Default.PowerSettingsNew,
                         modifier = Modifier.fillMaxWidth(),
                         enabled  = hasMac && !isLoading,
                     ) { vm.wakeOnLan() }
-                    if (!hasMac) {
-                        Spacer(Modifier.height(4.dp))
-                        Text("MAC address not recorded for this device yet. It will be captured next time the daemon starts.",
-                             style = MaterialTheme.typography.labelSmall, color = NxFg2)
-                    }
                 }
             }
 
@@ -194,6 +202,7 @@ fun RemoteScreen(
                 }
 
                 RemoteSection("media") {
+                    // prev | play/pause | next
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
                             vm.action("media", "previous") }
@@ -202,26 +211,41 @@ fun RemoteScreen(
                         RemoteButton("next",       Icons.Default.SkipNext,     Modifier.weight(1f), !isLoading) {
                             vm.action("media", "next") }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    // -10s | +10s
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("−10s", Icons.Default.Replay10,  Modifier.weight(1f), !isLoading) {
+                            vm.action("media", "seek_backward") }
+                        RemoteButton("+10s", Icons.Default.Forward10, Modifier.weight(1f), !isLoading) {
+                            vm.action("media", "seek_forward") }
+                    }
                 }
 
                 RemoteSection("volume") {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value         = volumeInput,
-                            onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) volumeInput = it },
-                            label         = { Text("0–100", color = NxFg2) },
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.VolumeDown, null, Modifier.size(18.dp), tint = NxFg2)
+                        Slider(
+                            value         = volumeSlider,
+                            onValueChange = { volumeSlider = it },
+                            onValueChangeFinished = { vm.action("volume", volumeSlider.roundToInt().toString()) },
+                            valueRange    = 0f..100f,
                             modifier      = Modifier.weight(1f),
-                            singleLine    = true,
-                            shape         = RoundedCornerShape(4.dp),
-                            colors        = nxFieldColors(),
-                            textStyle     = MaterialTheme.typography.bodyMedium,
-                            suffix        = { Text("%", color = NxFg2) },
+                            colors        = SliderDefaults.colors(
+                                thumbColor          = NxOrange,
+                                activeTrackColor    = NxOrange,
+                                inactiveTrackColor  = NxBorder,
+                            ),
                         )
-                        RemoteButton("set", Icons.Default.VolumeUp, Modifier.weight(1f),
-                            volumeInput.isNotBlank() && !isLoading) { vm.action("volume", volumeInput) }
+                        Icon(Icons.Default.VolumeUp, null, Modifier.size(18.dp), tint = NxFg2)
+                        Text(
+                            "${volumeSlider.roundToInt()}%",
+                            style    = MaterialTheme.typography.labelSmall,
+                            color    = NxFg2,
+                            modifier = Modifier.widthIn(min = 36.dp),
+                        )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         RemoteButton("mute",   Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
                             vm.action("mute") }
@@ -250,18 +274,32 @@ fun RemoteScreen(
                 }
 
                 RemoteSection("system") {
+                    // lock ↔ unlock (logical pair)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        RemoteButton("lock screen", Icons.Default.Lock,        Modifier.weight(1f), !isLoading) {
+                        RemoteButton("lock screen", Icons.Default.Lock,     Modifier.weight(1f), !isLoading) {
                             vm.action("lock") }
-                        RemoteButton("sleep",       Icons.Default.Bedtime,     Modifier.weight(1f), !isLoading) {
-                            vm.action("sleep") }
+                        RemoteButton("unlock",      Icons.Default.LockOpen, Modifier.weight(1f), !isLoading) {
+                            vm.action("unlock", unlockPassword) }
                     }
+                    // Password for unlock (compact, always visible)
+                    OutlinedTextField(
+                        value         = unlockPassword,
+                        onValueChange = { unlockPassword = it },
+                        label         = { Text("password for unlock (optional)", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        singleLine    = true,
+                        shape         = RoundedCornerShape(4.dp),
+                        colors        = nxFieldColors(),
+                        textStyle     = MaterialTheme.typography.bodyMedium,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    )
                     Spacer(Modifier.height(8.dp))
+                    // sleep ↔ wake (logical pair)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        RemoteButton("wake display", Icons.Default.LightMode,  Modifier.weight(1f), !isLoading) {
+                        RemoteButton("sleep",        Icons.Default.Bedtime,   Modifier.weight(1f), !isLoading) {
+                            vm.action("sleep") }
+                        RemoteButton("wake display", Icons.Default.LightMode, Modifier.weight(1f), !isLoading) {
                             vm.action("wake") }
-                        RemoteButton("unlock",       Icons.Default.LockOpen,   Modifier.weight(1f), !isLoading) {
-                            vm.action("unlock") }
                     }
                     Spacer(Modifier.height(8.dp))
                     RemoteButton("screenshot + describe", Icons.Default.Screenshot, Modifier.fillMaxWidth(),
@@ -274,8 +312,53 @@ fun RemoteScreen(
 
                 if (isOffline) {
                     RemoteSection("device offline") {
-                        Text("${selectedDevice?.hostname} is not connected. Commands will be queued and delivered when the device comes online.",
+                        Text("${selectedDevice?.hostname} is offline — commands queue and deliver when back online.",
                              style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                    }
+                }
+
+                RemoteSection("media") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
+                            vm.mobileCommand("media", "previous") }
+                        RemoteButton("play/pause", Icons.Default.PlayArrow,    Modifier.weight(2f), !isLoading) {
+                            vm.mobileCommand("media", "play-pause") }
+                        RemoteButton("next",       Icons.Default.SkipNext,     Modifier.weight(1f), !isLoading) {
+                            vm.mobileCommand("media", "next") }
+                    }
+                }
+
+                RemoteSection("volume") {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.VolumeDown, null, Modifier.size(18.dp), tint = NxFg2)
+                        Slider(
+                            value         = volumeSlider,
+                            onValueChange = { volumeSlider = it },
+                            onValueChangeFinished = {
+                                vm.mobileCommand("volume", volumeSlider.roundToInt().toString()) },
+                            valueRange    = 0f..100f,
+                            modifier      = Modifier.weight(1f),
+                            colors        = SliderDefaults.colors(
+                                thumbColor         = NxOrange,
+                                activeTrackColor   = NxOrange,
+                                inactiveTrackColor = NxBorder,
+                            ),
+                        )
+                        Icon(Icons.Default.VolumeUp, null, Modifier.size(18.dp), tint = NxFg2)
+                        Text(
+                            "${volumeSlider.roundToInt()}%",
+                            style    = MaterialTheme.typography.labelSmall,
+                            color    = NxFg2,
+                            modifier = Modifier.widthIn(min = 36.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("mute",   Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
+                            vm.mobileCommand("volume", "0") }
+                        RemoteButton("max",    Icons.Default.VolumeUp,  Modifier.weight(1f), !isLoading) {
+                            vm.mobileCommand("volume", "100") }
                     }
                 }
 

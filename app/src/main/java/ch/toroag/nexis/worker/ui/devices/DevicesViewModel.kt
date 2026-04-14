@@ -55,10 +55,13 @@ class DevicesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun probeDevice() {
+    fun probeDevice(dev: NexisApiService.DeviceInfo) {
         viewModelScope.launch(Dispatchers.IO) {
             _probeLoading.value = true
-            _probeOutput.value  = api.probeController(baseUrl, token)
+            _probeOutput.value  = if (dev.deviceType == "desktop" && dev.online)
+                api.probeController(baseUrl, token)   // live system probe for online PCs
+            else
+                api.probeDevice(baseUrl, token, dev.deviceId)  // last-known from DB
             _probeLoading.value = false
         }
     }

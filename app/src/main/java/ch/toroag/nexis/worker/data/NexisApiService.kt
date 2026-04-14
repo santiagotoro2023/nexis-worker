@@ -308,15 +308,18 @@ class NexisApiService(
     // ── Desktop control ───────────────────────────────────────────────────────
 
     /** Executes a desktop action directly on the server without going through the AI.
-     *  Returns the raw result string (e.g. "opened", "volume set to 50%", window list). */
+     *  Returns the raw result string (e.g. "opened", "volume set to 50%", window list).
+     *  Screenshot uses the long-timeout stream client because vision inference can take >30s. */
     fun desktopAction(baseUrl: String, token: String, action: String, arg: String = "",
                       deviceId: String = ""): String {
         val obj = JSONObject().put("action", action).put("arg", arg)
         if (deviceId.isNotEmpty()) obj.put("device_id", deviceId)
         val body = obj.toString().toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$baseUrl/api/desktop").post(body).withBearer(token).build()
+        // Screenshot + vision inference can take 60-120s — use the long-timeout client
+        val client = if (action == "screenshot") streamClient else standardClient
         return try {
-            standardClient.newCall(req).execute().use { resp ->
+            client.newCall(req).execute().use { resp ->
                 val text = resp.body?.string() ?: return "(no response)"
                 if (!resp.isSuccessful) return "(error ${resp.code})"
                 JSONObject(text).optString("result", "(no result)")
@@ -445,6 +448,18 @@ class NexisApiService(
 
     fun probeController(baseUrl: String, token: String): String {
         val req = Request.Builder().url("$baseUrl/api/probe").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return "(probe failed: ${resp.code})"
+                JSONObject(resp.body!!.string()).optString("probe", "(no output)")
+            }
+        } catch (e: Exception) { "(probe error: ${e.message})" }
+    }
+
+    fun probeDevice(baseUrl: String, token: String, deviceId: String): String {
+        val req = Request.Builder()
+            .url("$baseUrl/api/probe/device?device_id=$deviceId")
+            .withBearer(token).get().build()
         return try {
             standardClient.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return "(probe failed: ${resp.code})"

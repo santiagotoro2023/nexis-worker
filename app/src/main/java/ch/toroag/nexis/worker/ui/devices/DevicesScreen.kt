@@ -63,7 +63,7 @@ fun DevicesScreen(
                     DeviceCard(
                         dev       = dev,
                         onSetRole = { role -> vm.setRole(dev.deviceId, role) },
-                        onProbe   = { vm.probeDevice() },
+                        onProbe   = { vm.probeDevice(dev) },
                     )
                 }
                 if (devices.isEmpty()) {
@@ -221,17 +221,15 @@ private fun DeviceCard(
                         Text("set primary mobile", style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                if (dev.deviceType == "desktop") {
-                    OutlinedButton(
-                        onClick = onProbe,
-                        modifier = Modifier.height(32.dp),
-                        shape = RoundedCornerShape(4.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
-                    ) {
-                        Text("probe", style = MaterialTheme.typography.labelSmall)
-                    }
+                OutlinedButton(
+                    onClick = onProbe,
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
+                ) {
+                    Text("probe", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
