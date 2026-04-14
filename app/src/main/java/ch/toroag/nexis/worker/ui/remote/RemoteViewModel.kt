@@ -16,8 +16,8 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = PreferencesRepository.get(app)
     private val api   = NexisApiService(prefs, app)
 
-    private val _response  = MutableStateFlow("")
-    val response: StateFlow<String> = _response
+    private val _result    = MutableStateFlow("")
+    val result: StateFlow<String> = _result
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -33,20 +33,13 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun send(command: String) {
+    fun action(action: String, arg: String = "") {
         if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            _response.value  = ""
-            api.streamChat(
-                baseUrl      = baseUrl,
-                token        = token,
-                msg          = command,
-                onToken      = { tok -> _response.value = _response.value + tok },
-                onAudioReady = {},
-                onDone       = { _isLoading.value = false },
-                onError      = { err -> _isLoading.value = false; _response.value = "Error: $err" },
-            )
+            _result.value    = ""
+            _result.value    = api.desktopAction(baseUrl, token, action, arg)
+            _isLoading.value = false
         }
     }
 }

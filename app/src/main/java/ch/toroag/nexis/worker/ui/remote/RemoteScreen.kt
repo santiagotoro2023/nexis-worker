@@ -1,6 +1,5 @@
 package ch.toroag.nexis.worker.ui.remote
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,7 +27,7 @@ fun RemoteScreen(
     onBack: () -> Unit,
     vm:     RemoteViewModel = viewModel(),
 ) {
-    val response  by vm.response.collectAsState()
+    val result    by vm.result.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
 
     var appInput       by remember { mutableStateOf("") }
@@ -48,9 +46,7 @@ fun RemoteScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NxFg2)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
     ) { padding ->
@@ -64,7 +60,7 @@ fun RemoteScreen(
         ) {
 
             // ── App control ───────────────────────────────────────────────────
-            RemoteSection(label = "app control") {
+            RemoteSection("app control") {
                 OutlinedTextField(
                     value         = appInput,
                     onValueChange = { appInput = it },
@@ -77,63 +73,30 @@ fun RemoteScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton(
-                        label    = "open",
-                        icon     = Icons.Default.OpenInNew,
-                        modifier = Modifier.weight(1f),
-                        enabled  = appInput.isNotBlank() && !isLoading,
-                        onClick  = { vm.send("open $appInput on my computer") },
-                    )
-                    RemoteButton(
-                        label    = "close",
-                        icon     = Icons.Default.Close,
-                        modifier = Modifier.weight(1f),
-                        enabled  = appInput.isNotBlank() && !isLoading,
-                        onClick  = { vm.send("close $appInput on my computer") },
-                    )
+                    RemoteButton("open",  Icons.Default.OpenInNew, Modifier.weight(1f),
+                        appInput.isNotBlank() && !isLoading) { vm.action("open",  appInput.trim()) }
+                    RemoteButton("close", Icons.Default.Close,     Modifier.weight(1f),
+                        appInput.isNotBlank() && !isLoading) { vm.action("close", appInput.trim()) }
                 }
                 Spacer(Modifier.height(4.dp))
-                RemoteButton(
-                    label   = "list open windows",
-                    icon    = Icons.Default.List,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled  = !isLoading,
-                    onClick  = { vm.send("what windows are currently open on my desktop?") },
-                )
+                RemoteButton("list open windows", Icons.Default.List, Modifier.fillMaxWidth(),
+                    !isLoading) { vm.action("windows") }
             }
 
             // ── Media ─────────────────────────────────────────────────────────
-            RemoteSection(label = "media") {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    RemoteButton(
-                        label    = "prev",
-                        icon     = Icons.Default.SkipPrevious,
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("skip to previous track") },
-                    )
-                    RemoteButton(
-                        label    = "play / pause",
-                        icon     = Icons.Default.PlayArrow,
-                        modifier = Modifier.weight(2f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("toggle media playback") },
-                    )
-                    RemoteButton(
-                        label    = "next",
-                        icon     = Icons.Default.SkipNext,
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("skip to next track") },
-                    )
+            RemoteSection("media") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
+                        vm.action("media", "previous") }
+                    RemoteButton("play/pause", Icons.Default.PlayArrow,    Modifier.weight(2f), !isLoading) {
+                        vm.action("media", "play-pause") }
+                    RemoteButton("next",       Icons.Default.SkipNext,     Modifier.weight(1f), !isLoading) {
+                        vm.action("media", "next") }
                 }
             }
 
             // ── Volume ────────────────────────────────────────────────────────
-            RemoteSection(label = "volume") {
+            RemoteSection("volume") {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -142,7 +105,7 @@ fun RemoteScreen(
                     OutlinedTextField(
                         value         = volumeInput,
                         onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) volumeInput = it },
-                        label         = { Text("level (0-100)", color = NxFg2) },
+                        label         = { Text("0–100", color = NxFg2) },
                         modifier      = Modifier.weight(1f),
                         singleLine    = true,
                         shape         = RoundedCornerShape(4.dp),
@@ -150,63 +113,20 @@ fun RemoteScreen(
                         textStyle     = MaterialTheme.typography.bodyMedium,
                         suffix        = { Text("%", color = NxFg2) },
                     )
-                    RemoteButton(
-                        label    = "set",
-                        icon     = Icons.Default.VolumeUp,
-                        modifier = Modifier.weight(1f),
-                        enabled  = volumeInput.isNotBlank() && !isLoading,
-                        onClick  = { vm.send("set the volume to $volumeInput percent") },
-                    )
+                    RemoteButton("set", Icons.Default.VolumeUp, Modifier.weight(1f),
+                        volumeInput.isNotBlank() && !isLoading) { vm.action("volume", volumeInput) }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton(
-                        label    = "mute",
-                        icon     = Icons.Default.VolumeOff,
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("mute the speakers") },
-                    )
-                    RemoteButton(
-                        label    = "unmute",
-                        icon     = Icons.Default.VolumeUp,
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("unmute the speakers") },
-                    )
+                    RemoteButton("mute",   Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
+                        vm.action("mute") }
+                    RemoteButton("unmute", Icons.Default.VolumeUp,  Modifier.weight(1f), !isLoading) {
+                        vm.action("unmute") }
                 }
-            }
-
-            // ── System ────────────────────────────────────────────────────────
-            RemoteSection(label = "system") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton(
-                        label    = "lock screen",
-                        icon     = Icons.Default.Lock,
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("lock the computer screen") },
-                    )
-                    RemoteButton(
-                        label    = "sleep",
-                        icon     = Icons.Default.Bedtime,
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isLoading,
-                        onClick  = { vm.send("put the computer to sleep") },
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                RemoteButton(
-                    label    = "screenshot + describe",
-                    icon     = Icons.Default.Screenshot,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled  = !isLoading,
-                    onClick  = { vm.send("take a screenshot and describe what is on my screen right now") },
-                )
             }
 
             // ── Clipboard ─────────────────────────────────────────────────────
-            RemoteSection(label = "clipboard") {
+            RemoteSection("clipboard") {
                 OutlinedTextField(
                     value         = clipboardInput,
                     onValueChange = { clipboardInput = it },
@@ -218,19 +138,27 @@ fun RemoteScreen(
                     textStyle     = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
-                RemoteButton(
-                    label    = "copy to PC clipboard",
-                    icon     = Icons.Default.ContentCopy,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled  = clipboardInput.isNotBlank() && !isLoading,
-                    onClick  = { vm.send("copy this to the clipboard: ${clipboardInput.trim()}") },
-                )
+                RemoteButton("copy to PC clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
+                    clipboardInput.isNotBlank() && !isLoading) { vm.action("clip", clipboardInput.trim()) }
             }
 
-            // ── Response ──────────────────────────────────────────────────────
-            if (isLoading || response.isNotEmpty()) {
-                RemoteSection(label = "nexis says") {
-                    if (isLoading && response.isEmpty()) {
+            // ── System ────────────────────────────────────────────────────────
+            RemoteSection("system") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RemoteButton("lock screen", Icons.Default.Lock,    Modifier.weight(1f), !isLoading) {
+                        vm.action("lock") }
+                    RemoteButton("sleep",       Icons.Default.Bedtime, Modifier.weight(1f), !isLoading) {
+                        vm.action("sleep") }
+                }
+                Spacer(Modifier.height(8.dp))
+                RemoteButton("screenshot + describe", Icons.Default.Screenshot, Modifier.fillMaxWidth(),
+                    !isLoading) { vm.action("screenshot") }
+            }
+
+            // ── Result ────────────────────────────────────────────────────────
+            if (isLoading || result.isNotEmpty()) {
+                RemoteSection("result") {
+                    if (isLoading && result.isEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(
                                 modifier    = Modifier.size(14.dp),
@@ -239,27 +167,18 @@ fun RemoteScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text("working…",
-                                 style = MaterialTheme.typography.bodySmall,
-                                 color = NxFg2,
-                                 fontStyle = FontStyle.Italic)
+                                style     = MaterialTheme.typography.bodySmall,
+                                color     = NxFg2)
                         }
                     } else {
                         Text(
-                            response,
-                            style    = MaterialTheme.typography.bodySmall.copy(
+                            result,
+                            style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize   = 12.sp,
                             ),
-                            color    = NxFg,
+                            color = NxFg,
                         )
-                        if (isLoading) {
-                            Spacer(Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                modifier   = Modifier.fillMaxWidth(),
-                                color      = NxOrange,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            )
-                        }
                     }
                 }
             }
@@ -274,12 +193,8 @@ fun RemoteScreen(
 @Composable
 private fun RemoteSection(label: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text(
-            label,
-            style    = MaterialTheme.typography.labelMedium,
-            color    = NxOrange,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
+        Text(label, style = MaterialTheme.typography.labelMedium, color = NxOrange,
+             modifier = Modifier.padding(bottom = 6.dp))
         HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
         Spacer(Modifier.height(10.dp))
         content()
@@ -288,26 +203,26 @@ private fun RemoteSection(label: String, content: @Composable ColumnScope.() -> 
 
 @Composable
 private fun RemoteButton(
-    label:    String,
-    icon:     androidx.compose.ui.graphics.vector.ImageVector,
+    label:   String,
+    icon:    androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier,
     enabled:  Boolean  = true,
     onClick:  () -> Unit,
 ) {
     OutlinedButton(
-        onClick          = onClick,
-        modifier         = modifier.height(44.dp),
-        enabled          = enabled,
-        shape            = RoundedCornerShape(4.dp),
-        contentPadding   = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-        colors           = ButtonDefaults.outlinedButtonColors(
+        onClick        = onClick,
+        modifier       = modifier.height(44.dp),
+        enabled        = enabled,
+        shape          = RoundedCornerShape(4.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        colors         = ButtonDefaults.outlinedButtonColors(
             contentColor         = NxFg,
             disabledContentColor = NxFg2,
         ),
-        border           = androidx.compose.foundation.BorderStroke(
+        border = androidx.compose.foundation.BorderStroke(
             1.dp, if (enabled) NxBorder else NxBorder.copy(alpha = 0.4f)),
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = NxOrange)
+        Icon(icon, null, modifier = Modifier.size(16.dp), tint = NxOrange)
         Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium)
     }

@@ -305,6 +305,23 @@ class NexisApiService(
         standardClient.newCall(req).execute().close()
     }
 
+    // ── Desktop control ───────────────────────────────────────────────────────
+
+    /** Executes a desktop action directly on the server without going through the AI.
+     *  Returns the raw result string (e.g. "opened", "volume set to 50%", window list). */
+    fun desktopAction(baseUrl: String, token: String, action: String, arg: String = ""): String {
+        val body = JSONObject().put("action", action).put("arg", arg).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/desktop").post(body).withBearer(token).build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                val text = resp.body?.string() ?: return "(no response)"
+                if (!resp.isSuccessful) return "(error ${resp.code})"
+                JSONObject(text).optString("result", "(no result)")
+            }
+        } catch (e: Exception) { "(error: ${e.message})" }
+    }
+
     fun deleteHistorySession(baseUrl: String, token: String, sessionId: String) {
         val body = JSONObject().put("action", "delete").put("session_id", sessionId).toString()
             .toRequestBody("application/json".toMediaType())
