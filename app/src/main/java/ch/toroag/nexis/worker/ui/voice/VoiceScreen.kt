@@ -115,7 +115,7 @@ fun VoiceScreen(
                 when (state) {
                     VoiceState.Idle      -> "tap to speak"
                     VoiceState.Listening -> "listening..."
-                    VoiceState.Thinking  -> "thinking..."
+                    VoiceState.Thinking  -> "thinking… tap to cancel"
                     VoiceState.Speaking  -> "speaking — tap to stop"
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -146,10 +146,11 @@ fun VoiceScreen(
                         )
                         .border(1.5.dp, NxBorder, CircleShape)
                         .clickable(
-                            enabled = state == VoiceState.Idle || state == VoiceState.Speaking
+                            enabled = state != VoiceState.Listening
                         ) {
                             when (state) {
                                 VoiceState.Speaking -> vm.stopSpeaking()
+                                VoiceState.Thinking -> vm.abort()
                                 VoiceState.Idle     -> {
                                     if (!hasAudioPerm) permLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                     else vm.startListening()
@@ -160,7 +161,11 @@ fun VoiceScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector        = if (state == VoiceState.Speaking) Icons.Default.Stop else Icons.Default.Mic,
+                        imageVector = when (state) {
+                            VoiceState.Speaking -> Icons.Default.Stop
+                            VoiceState.Thinking -> Icons.Default.Close
+                            else                -> Icons.Default.Mic
+                        },
                         contentDescription = "mic",
                         tint               = if (state == VoiceState.Idle) NxFg2 else MaterialTheme.colorScheme.background,
                         modifier           = Modifier.size(36.dp),

@@ -7,6 +7,7 @@ import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
 import ch.toroag.nexis.worker.ui.chat.AudioPlayer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,8 +21,8 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app) {
     private val api   = NexisApiService(prefs, app)
 
     private val _state        = MutableStateFlow(VoiceState.Idle)
-    private val _transcript   = MutableStateFlow("")   // last user utterance
-    private val _response     = MutableStateFlow("")   // current assistant response
+    private val _transcript   = MutableStateFlow("")
+    private val _response     = MutableStateFlow("")
     private val _errorMessage = MutableStateFlow<String?>(null)
 
     val state:        StateFlow<VoiceState> = _state
@@ -32,6 +33,7 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app) {
     private var baseUrl     = ""
     private var token       = ""
     private var audioPlayer: AudioPlayer? = null
+    private var thinkingJob: Job?         = null
 
     init {
         viewModelScope.launch {
@@ -45,14 +47,12 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Called by the UI with the transcribed text from SpeechRecognizer. */
     fun onTranscript(text: String) {
         if (text.isBlank()) { _state.value = VoiceState.Idle; return }
         _transcript.value = text
         _response.value   = ""
         _state.value      = VoiceState.Thinking
-        viewModelScope.launch(Dispatchers.IO) {
-            // Enable server-side Piper voice so we get AUDIOREADY chunks
+        thinkingJob = viewModelScope.launch(Dispatchers.IO) {
             api.enableVoice(baseUrl, token, true)
             val sb = StringBuilder()
             api.streamChat(
@@ -65,11 +65,10 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app) {
                     audioPlayer?.enqueue(chunkId)
                 },
                 onDone   = {
-                    // AudioPlayer plays async; state returns to Idle when queue drains
                     viewModelScope.launch {
                         kotlinx.coroutines.delay(300)
                         while (audioPlayer?.isPlaying() == true) kotlinx.coroutines.delay(200)
-                        _state.value = VoiceState.Idle
+                        if (_state.value == VoiceState.Speaking) _state.value = VoiceState.Idle
                     }
                 },
                 onError  = { err ->
@@ -92,6 +91,17 @@ class VoiceViewModel(app: Application) : AndroidViewModel(app) {
     fun stopSpeaking() {
         audioPlayer?.stop()
         _state.value = VoiceState.Idle
+    }
+
+    /** Abort an in-progress Thinking or Speaking state and return to Idle. */
+    fun abort() {
+        thinkingJob?.cancel()
+        thinkingJob = null
+        audioPlayer?.stop()
+        _state.value = VoiceState.Idle
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { api.abortChat(baseUrl, token) }
+        }
     }
 
     fun clearError() { _errorMessage.value = null }

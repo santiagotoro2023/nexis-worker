@@ -49,9 +49,10 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     fun loadDevices() {
         viewModelScope.launch(Dispatchers.IO) {
             _devicesLoading.value = true
-            val all = api.getDevices(baseUrl, token).filter { it.deviceType == "desktop" }
+            val all = api.getDevices(baseUrl, token)
             _devices.value = all
-            if (_selectedDevice.value == null || _selectedDevice.value !in all) {
+            val cur = _selectedDevice.value
+            if (cur == null || cur !in all) {
                 _selectedDevice.value = all.firstOrNull { it.role == "primary_pc" }
                     ?: all.firstOrNull()
             }
@@ -61,15 +62,27 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectDevice(device: NexisApiService.DeviceInfo?) {
         _selectedDevice.value = device
+        _result.value = ""
     }
 
     fun action(action: String, arg: String = "") {
         if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
-        val devId = _selectedDevice.value?.deviceId ?: ""
+        val dev = _selectedDevice.value ?: return
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
             _result.value    = ""
-            _result.value    = api.desktopAction(baseUrl, token, action, arg, devId)
+            _result.value    = api.desktopAction(baseUrl, token, action, arg, dev.deviceId)
+            _isLoading.value = false
+        }
+    }
+
+    fun mobileCommand(action: String, arg: String = "") {
+        if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
+        val dev = _selectedDevice.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoading.value = true
+            _result.value    = ""
+            _result.value    = api.sendDeviceCommand(baseUrl, token, dev.deviceId, action, arg)
             _isLoading.value = false
         }
     }
@@ -89,6 +102,16 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 _result.value = text
             }
+            _isLoading.value = false
+        }
+    }
+
+    fun wakeOnLan() {
+        val mac = _selectedDevice.value?.mac?.ifEmpty { null } ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoading.value = true
+            _result.value    = ""
+            _result.value    = api.wakeOnLan(baseUrl, token, mac)
             _isLoading.value = false
         }
     }

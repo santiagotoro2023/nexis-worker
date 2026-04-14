@@ -15,12 +15,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ch.toroag.nexis.worker.ui.theme.NxBorder
-import ch.toroag.nexis.worker.ui.theme.NxFg
-import ch.toroag.nexis.worker.ui.theme.NxFg2
-import ch.toroag.nexis.worker.ui.theme.NxGreen
-import ch.toroag.nexis.worker.ui.theme.NxOrange
-import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
+import ch.toroag.nexis.worker.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,15 +32,19 @@ fun RemoteScreen(
     var appInput       by remember { mutableStateOf("") }
     var clipboardInput by remember { mutableStateOf("") }
     var volumeInput    by remember { mutableStateOf("50") }
+    var urlInput       by remember { mutableStateOf("") }
+    var notifyInput    by remember { mutableStateOf("") }
     var deviceDropdown by remember { mutableStateOf(false) }
+
+    val isDesktop = selectedDevice?.deviceType == "desktop"
+    val isMobile  = selectedDevice?.deviceType == "mobile"
+    val isOffline = selectedDevice?.online == false
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = {
-                    Text("remote control", style = MaterialTheme.typography.titleMedium, color = NxFg)
-                },
+                title = { Text("remote control", style = MaterialTheme.typography.titleMedium, color = NxFg) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NxFg2)
@@ -83,20 +82,26 @@ fun RemoteScreen(
                             }
                             selectedDevice != null -> {
                                 val dev = selectedDevice!!
-                                val dotColor = if (dev.online) NxGreen else NxFg2
-                                Text(if (dev.online) "●" else "○", color = dotColor,
+                                Text(if (dev.online) "●" else "○",
+                                     color = if (dev.online) NxGreen else NxFg2,
                                      style = MaterialTheme.typography.bodySmall)
                                 Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid
+                                    else Icons.Default.Computer,
+                                    null, Modifier.size(14.dp), tint = NxFg2,
+                                )
+                                Spacer(Modifier.width(6.dp))
                                 Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
-                                dev.role?.let { role ->
+                                dev.role?.let {
                                     Spacer(Modifier.width(6.dp))
-                                    Text("[$role]", style = MaterialTheme.typography.labelSmall, color = NxOrangeDim)
+                                    Text("[$it]", style = MaterialTheme.typography.labelSmall, color = NxOrangeDim)
                                 }
                                 Spacer(Modifier.weight(1f))
                                 Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp), tint = NxFg2)
                             }
                             else -> {
-                                Text("no desktop devices", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                                Text("no devices", style = MaterialTheme.typography.bodySmall, color = NxFg2)
                                 Spacer(Modifier.weight(1f))
                                 Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp), tint = NxFg2)
                             }
@@ -113,6 +118,12 @@ fun RemoteScreen(
                                         Text(if (dev.online) "●" else "○",
                                              color = if (dev.online) NxGreen else NxFg2,
                                              style = MaterialTheme.typography.bodySmall)
+                                        Spacer(Modifier.width(6.dp))
+                                        Icon(
+                                            if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid
+                                            else Icons.Default.Computer,
+                                            null, Modifier.size(14.dp), tint = NxFg2,
+                                        )
                                         Spacer(Modifier.width(8.dp))
                                         Column {
                                             Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
@@ -138,103 +149,191 @@ fun RemoteScreen(
                 }
             }
 
-            // ── App control ────────────────────────────────────────────────────
-            RemoteSection("app control") {
-                OutlinedTextField(
-                    value         = appInput,
-                    onValueChange = { appInput = it },
-                    label         = { Text("app name", color = NxFg2) },
-                    modifier      = Modifier.fillMaxWidth(),
-                    singleLine    = true,
-                    shape         = RoundedCornerShape(4.dp),
-                    colors        = nxFieldColors(),
-                    textStyle     = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton("open",  Icons.Default.OpenInNew, Modifier.weight(1f),
-                        appInput.isNotBlank() && !isLoading) { vm.action("open",  appInput.trim()) }
-                    RemoteButton("close", Icons.Default.Close,     Modifier.weight(1f),
-                        appInput.isNotBlank() && !isLoading) { vm.action("close", appInput.trim()) }
-                }
-                Spacer(Modifier.height(4.dp))
-                RemoteButton("list open windows", Icons.Default.List, Modifier.fillMaxWidth(),
-                    !isLoading) { vm.action("windows") }
-            }
-
-            // ── Media ──────────────────────────────────────────────────────────
-            RemoteSection("media") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
-                        vm.action("media", "previous") }
-                    RemoteButton("play/pause", Icons.Default.PlayArrow,    Modifier.weight(2f), !isLoading) {
-                        vm.action("media", "play-pause") }
-                    RemoteButton("next",       Icons.Default.SkipNext,     Modifier.weight(1f), !isLoading) {
-                        vm.action("media", "next") }
+            // ── WOL — offline PC only ──────────────────────────────────────────
+            if (isDesktop && isOffline) {
+                RemoteSection("wake on lan") {
+                    val hasMac = selectedDevice?.mac?.isNotEmpty() == true
+                    RemoteButton(
+                        label   = if (hasMac) "send magic packet (WOL)" else "WOL unavailable — no MAC",
+                        icon    = Icons.Default.PowerSettingsNew,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled  = hasMac && !isLoading,
+                    ) { vm.wakeOnLan() }
+                    if (!hasMac) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("MAC address not recorded for this device yet. It will be captured next time the daemon starts.",
+                             style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    }
                 }
             }
 
-            // ── Volume ─────────────────────────────────────────────────────────
-            RemoteSection("volume") {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                ) {
+            // ── Desktop controls ───────────────────────────────────────────────
+            if (isDesktop) {
+
+                RemoteSection("app control") {
                     OutlinedTextField(
-                        value         = volumeInput,
-                        onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) volumeInput = it },
-                        label         = { Text("0–100", color = NxFg2) },
-                        modifier      = Modifier.weight(1f),
+                        value         = appInput,
+                        onValueChange = { appInput = it },
+                        label         = { Text("app name or URL", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth(),
                         singleLine    = true,
                         shape         = RoundedCornerShape(4.dp),
                         colors        = nxFieldColors(),
                         textStyle     = MaterialTheme.typography.bodyMedium,
-                        suffix        = { Text("%", color = NxFg2) },
                     )
-                    RemoteButton("set", Icons.Default.VolumeUp, Modifier.weight(1f),
-                        volumeInput.isNotBlank() && !isLoading) { vm.action("volume", volumeInput) }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("open",  Icons.Default.OpenInNew, Modifier.weight(1f),
+                            appInput.isNotBlank() && !isLoading) { vm.action("open", appInput.trim()) }
+                        RemoteButton("close", Icons.Default.Close,     Modifier.weight(1f),
+                            appInput.isNotBlank() && !isLoading) { vm.action("close", appInput.trim()) }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    RemoteButton("list open windows", Icons.Default.List, Modifier.fillMaxWidth(),
+                        !isLoading) { vm.action("windows") }
                 }
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton("mute",   Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
-                        vm.action("mute") }
-                    RemoteButton("unmute", Icons.Default.VolumeUp,  Modifier.weight(1f), !isLoading) {
-                        vm.action("unmute") }
+
+                RemoteSection("media") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
+                            vm.action("media", "previous") }
+                        RemoteButton("play/pause", Icons.Default.PlayArrow,    Modifier.weight(2f), !isLoading) {
+                            vm.action("media", "play-pause") }
+                        RemoteButton("next",       Icons.Default.SkipNext,     Modifier.weight(1f), !isLoading) {
+                            vm.action("media", "next") }
+                    }
+                }
+
+                RemoteSection("volume") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value         = volumeInput,
+                            onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) volumeInput = it },
+                            label         = { Text("0–100", color = NxFg2) },
+                            modifier      = Modifier.weight(1f),
+                            singleLine    = true,
+                            shape         = RoundedCornerShape(4.dp),
+                            colors        = nxFieldColors(),
+                            textStyle     = MaterialTheme.typography.bodyMedium,
+                            suffix        = { Text("%", color = NxFg2) },
+                        )
+                        RemoteButton("set", Icons.Default.VolumeUp, Modifier.weight(1f),
+                            volumeInput.isNotBlank() && !isLoading) { vm.action("volume", volumeInput) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("mute",   Icons.Default.VolumeOff, Modifier.weight(1f), !isLoading) {
+                            vm.action("mute") }
+                        RemoteButton("unmute", Icons.Default.VolumeUp,  Modifier.weight(1f), !isLoading) {
+                            vm.action("unmute") }
+                    }
+                }
+
+                RemoteSection("clipboard") {
+                    OutlinedTextField(
+                        value         = clipboardInput,
+                        onValueChange = { clipboardInput = it },
+                        label         = { Text("text to copy to PC", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        maxLines      = 3,
+                        shape         = RoundedCornerShape(4.dp),
+                        colors        = nxFieldColors(),
+                        textStyle     = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    RemoteButton("copy to PC clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
+                        clipboardInput.isNotBlank() && !isLoading) { vm.action("clip", clipboardInput.trim()) }
+                    Spacer(Modifier.height(4.dp))
+                    RemoteButton("paste PC clipboard on phone", Icons.Default.ContentPaste, Modifier.fillMaxWidth(),
+                        !isLoading) { vm.pasteFromPc() }
+                }
+
+                RemoteSection("system") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("lock screen", Icons.Default.Lock,        Modifier.weight(1f), !isLoading) {
+                            vm.action("lock") }
+                        RemoteButton("sleep",       Icons.Default.Bedtime,     Modifier.weight(1f), !isLoading) {
+                            vm.action("sleep") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("wake display", Icons.Default.LightMode,  Modifier.weight(1f), !isLoading) {
+                            vm.action("wake") }
+                        RemoteButton("unlock",       Icons.Default.LockOpen,   Modifier.weight(1f), !isLoading) {
+                            vm.action("unlock") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    RemoteButton("screenshot + describe", Icons.Default.Screenshot, Modifier.fillMaxWidth(),
+                        !isLoading) { vm.action("screenshot") }
                 }
             }
 
-            // ── Clipboard ──────────────────────────────────────────────────────
-            RemoteSection("clipboard") {
-                OutlinedTextField(
-                    value         = clipboardInput,
-                    onValueChange = { clipboardInput = it },
-                    label         = { Text("text to copy", color = NxFg2) },
-                    modifier      = Modifier.fillMaxWidth(),
-                    maxLines      = 3,
-                    shape         = RoundedCornerShape(4.dp),
-                    colors        = nxFieldColors(),
-                    textStyle     = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(8.dp))
-                RemoteButton("copy to PC clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
-                    clipboardInput.isNotBlank() && !isLoading) { vm.action("clip", clipboardInput.trim()) }
-                Spacer(Modifier.height(4.dp))
-                RemoteButton("paste PC clipboard on phone", Icons.Default.ContentPaste, Modifier.fillMaxWidth(),
-                    !isLoading) { vm.pasteFromPc() }
-            }
+            // ── Mobile controls ────────────────────────────────────────────────
+            if (isMobile) {
 
-            // ── System ─────────────────────────────────────────────────────────
-            RemoteSection("system") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RemoteButton("lock screen", Icons.Default.Lock,    Modifier.weight(1f), !isLoading) {
-                        vm.action("lock") }
-                    RemoteButton("sleep",       Icons.Default.Bedtime, Modifier.weight(1f), !isLoading) {
-                        vm.action("sleep") }
+                if (isOffline) {
+                    RemoteSection("device offline") {
+                        Text("${selectedDevice?.hostname} is not connected. Commands will be queued and delivered when the device comes online.",
+                             style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                    }
                 }
-                Spacer(Modifier.height(8.dp))
-                RemoteButton("screenshot + describe", Icons.Default.Screenshot, Modifier.fillMaxWidth(),
-                    !isLoading) { vm.action("screenshot") }
+
+                RemoteSection("open") {
+                    OutlinedTextField(
+                        value         = urlInput,
+                        onValueChange = { urlInput = it },
+                        label         = { Text("URL or package name", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        singleLine    = true,
+                        shape         = RoundedCornerShape(4.dp),
+                        colors        = nxFieldColors(),
+                        textStyle     = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RemoteButton("open URL", Icons.Default.OpenInNew, Modifier.weight(1f),
+                            urlInput.isNotBlank() && !isLoading) {
+                            vm.mobileCommand("open_url", urlInput.trim()) }
+                        RemoteButton("open app", Icons.Default.Apps,      Modifier.weight(1f),
+                            urlInput.isNotBlank() && !isLoading) {
+                            vm.mobileCommand("open_app", urlInput.trim()) }
+                    }
+                }
+
+                RemoteSection("clipboard") {
+                    OutlinedTextField(
+                        value         = clipboardInput,
+                        onValueChange = { clipboardInput = it },
+                        label         = { Text("text to copy to phone", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        maxLines      = 3,
+                        shape         = RoundedCornerShape(4.dp),
+                        colors        = nxFieldColors(),
+                        textStyle     = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    RemoteButton("copy to phone clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
+                        clipboardInput.isNotBlank() && !isLoading) {
+                        vm.mobileCommand("clip", clipboardInput.trim()) }
+                }
+
+                RemoteSection("notify") {
+                    OutlinedTextField(
+                        value         = notifyInput,
+                        onValueChange = { notifyInput = it },
+                        label         = { Text("notification text", color = NxFg2) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        maxLines      = 2,
+                        shape         = RoundedCornerShape(4.dp),
+                        colors        = nxFieldColors(),
+                        textStyle     = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    RemoteButton("send notification", Icons.Default.Notifications, Modifier.fillMaxWidth(),
+                        notifyInput.isNotBlank() && !isLoading) {
+                        vm.mobileCommand("notify", notifyInput.trim()) }
+                }
             }
 
             // ── Result ─────────────────────────────────────────────────────────
@@ -242,11 +341,7 @@ fun RemoteScreen(
                 RemoteSection("result") {
                     if (isLoading && result.isEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier    = Modifier.size(14.dp),
-                                color       = NxOrange,
-                                strokeWidth = 2.dp,
-                            )
+                            CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text("working…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
                         }
@@ -254,9 +349,7 @@ fun RemoteScreen(
                         Text(
                             result,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize   = 12.sp,
-                            ),
+                                fontFamily = FontFamily.Monospace, fontSize = 12.sp),
                             color = NxFg,
                         )
                     }
@@ -283,8 +376,8 @@ private fun RemoteSection(label: String, content: @Composable ColumnScope.() -> 
 
 @Composable
 private fun RemoteButton(
-    label:   String,
-    icon:    androidx.compose.ui.graphics.vector.ImageVector,
+    label:    String,
+    icon:     androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier,
     enabled:  Boolean  = true,
     onClick:  () -> Unit,
@@ -302,7 +395,7 @@ private fun RemoteButton(
         border = androidx.compose.foundation.BorderStroke(
             1.dp, if (enabled) NxBorder else NxBorder.copy(alpha = 0.4f)),
     ) {
-        Icon(icon, null, modifier = Modifier.size(16.dp), tint = NxOrange)
+        Icon(icon, null, modifier = Modifier.size(16.dp), tint = if (enabled) NxOrange else NxFg2)
         Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium)
     }

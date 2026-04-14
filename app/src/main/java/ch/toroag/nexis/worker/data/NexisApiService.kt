@@ -335,6 +335,7 @@ class NexisApiService(
         val deviceType:   String,
         val capabilities: List<String>,
         val ip:           String,
+        val mac:          String,
         val role:         String?,
         val online:       Boolean,
         val batteryPct:   Int?,
@@ -362,6 +363,7 @@ class NexisApiService(
                         deviceType   = o.optString("device_type", "desktop"),
                         capabilities = if (caps != null) (0 until caps.length()).map { i -> caps.getString(i) } else emptyList(),
                         ip           = o.optString("ip", ""),
+                        mac          = o.optString("mac", ""),
                         role         = o.optString("role").takeIf { r -> r.isNotEmpty() && r != "null" },
                         online       = o.optBoolean("online", false),
                         batteryPct   = if (o.isNull("battery_pct")) null else o.optInt("battery_pct"),
@@ -410,6 +412,35 @@ class NexisApiService(
             .toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$baseUrl/api/commands/ack").post(body).withBearer(token).build()
         runCatching { standardClient.newCall(req).execute().close() }
+    }
+
+    fun wakeOnLan(baseUrl: String, token: String, mac: String): String {
+        val body = JSONObject().put("mac", mac).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/wol").post(body).withBearer(token).build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                val text = resp.body?.string() ?: return "(no response)"
+                if (!resp.isSuccessful) return "(error ${resp.code})"
+                JSONObject(text).optString("result", "(no result)")
+            }
+        } catch (e: Exception) { "(error: ${e.message})" }
+    }
+
+    fun sendDeviceCommand(baseUrl: String, token: String, deviceId: String,
+                          action: String, arg: String = ""): String {
+        val body = JSONObject().put("device_id", deviceId).put("action", action).put("arg", arg)
+            .toString().toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/device/command").post(body).withBearer(token).build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                val text = resp.body?.string() ?: return "(no response)"
+                if (!resp.isSuccessful) return "(error ${resp.code})"
+                val obj = JSONObject(text)
+                if (obj.optBoolean("ok")) "queued: ${obj.optString("queued", action)}"
+                else "(failed)"
+            }
+        } catch (e: Exception) { "(error: ${e.message})" }
     }
 
     fun probeController(baseUrl: String, token: String): String {
