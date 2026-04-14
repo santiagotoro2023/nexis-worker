@@ -1,17 +1,25 @@
 package ch.toroag.nexis.worker.ui.chat
 
 import android.app.Application
+import android.content.Context
+import android.net.wifi.WifiManager
+import android.os.BatteryManager
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ch.toroag.nexis.worker.data.NexisApiService
 import ch.toroag.nexis.worker.data.PreferencesRepository
+import ch.toroag.nexis.worker.util.CommandExecutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class ChatMessage(
     val role:       String,   // "user" | "assistant"
@@ -56,6 +64,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private var token        = ""
     private var audioPlayer: AudioPlayer? = null
     private var syncJob:     Job? = null
+    private var pollJob:     Job? = null
     private var syncHistLen  = -1
     private var _syncRetries = 0
 
@@ -67,7 +76,60 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     initAudioPlayer()
                     loadModels()
                     initHistory()
+                    registerThisDevice()
+                    startCommandPolling()
                 }
+            }
+        }
+    }
+
+    private fun registerThisDevice() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val deviceId = prefs.getOrCreateDeviceId()
+                val bm = getApplication<Application>()
+                    .getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+                val battPct  = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                val charging = bm?.isCharging ?: false
+                val ip = try {
+                    val wm = getApplication<Application>()
+                        .getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                    val addr = wm?.connectionInfo?.ipAddress ?: 0
+                    "${addr and 0xff}.${addr shr 8 and 0xff}.${addr shr 16 and 0xff}.${addr shr 24 and 0xff}"
+                } catch (_: Exception) { "" }
+                val info = JSONObject().apply {
+                    put("device_id",   deviceId)
+                    put("hostname",    Build.MODEL)
+                    put("model",       "${Build.MANUFACTURER} ${Build.MODEL}")
+                    put("os",          "Android ${Build.VERSION.RELEASE}")
+                    put("arch",        Build.SUPPORTED_ABIS.firstOrNull() ?: "")
+                    put("device_type", "mobile")
+                    put("capabilities", JSONArray(listOf("intents", "open_url", "notify", "clip")))
+                    put("ip",          ip)
+                    if (battPct != null) put("battery_pct", battPct)
+                    put("charging",    charging)
+                }
+                api.registerDevice(baseUrl, token, info)
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun startCommandPolling() {
+        pollJob?.cancel()
+        pollJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    val deviceId = prefs.getOrCreateDeviceId()
+                    if (deviceId.isNotEmpty() && baseUrl.isNotEmpty() && token.isNotEmpty()) {
+                        val cmds = api.pollCommands(baseUrl, token, deviceId)
+                        if (cmds.isNotEmpty()) {
+                            val ctx = getApplication<Application>()
+                            cmds.forEach { CommandExecutor.execute(ctx, it) }
+                            api.ackCommands(baseUrl, token, cmds.map { it.id })
+                        }
+                    }
+                } catch (_: Exception) {}
+                delay(10_000)
             }
         }
     }

@@ -309,9 +309,11 @@ class NexisApiService(
 
     /** Executes a desktop action directly on the server without going through the AI.
      *  Returns the raw result string (e.g. "opened", "volume set to 50%", window list). */
-    fun desktopAction(baseUrl: String, token: String, action: String, arg: String = ""): String {
-        val body = JSONObject().put("action", action).put("arg", arg).toString()
-            .toRequestBody("application/json".toMediaType())
+    fun desktopAction(baseUrl: String, token: String, action: String, arg: String = "",
+                      deviceId: String = ""): String {
+        val obj = JSONObject().put("action", action).put("arg", arg)
+        if (deviceId.isNotEmpty()) obj.put("device_id", deviceId)
+        val body = obj.toString().toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$baseUrl/api/desktop").post(body).withBearer(token).build()
         return try {
             standardClient.newCall(req).execute().use { resp ->
@@ -320,6 +322,104 @@ class NexisApiService(
                 JSONObject(text).optString("result", "(no result)")
             }
         } catch (e: Exception) { "(error: ${e.message})" }
+    }
+
+    // ── Devices ───────────────────────────────────────────────────────────────
+
+    data class DeviceInfo(
+        val deviceId:     String,
+        val hostname:     String,
+        val model:        String,
+        val os:           String,
+        val arch:         String,
+        val deviceType:   String,
+        val capabilities: List<String>,
+        val ip:           String,
+        val role:         String?,
+        val online:       Boolean,
+        val batteryPct:   Int?,
+        val charging:     Boolean?,
+        val lastSeen:     String,
+    )
+
+    data class PendingCommand(val id: Int, val action: String, val arg: String)
+
+    fun getDevices(baseUrl: String, token: String): List<DeviceInfo> {
+        val req = Request.Builder().url("$baseUrl/api/devices").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val arr = JSONObject(resp.body!!.string()).getJSONArray("devices")
+                (0 until arr.length()).map {
+                    val o    = arr.getJSONObject(it)
+                    val caps = o.optJSONArray("capabilities")
+                    DeviceInfo(
+                        deviceId     = o.getString("device_id"),
+                        hostname     = o.getString("hostname"),
+                        model        = o.optString("model", ""),
+                        os           = o.optString("os", ""),
+                        arch         = o.optString("arch", ""),
+                        deviceType   = o.optString("device_type", "desktop"),
+                        capabilities = if (caps != null) (0 until caps.length()).map { i -> caps.getString(i) } else emptyList(),
+                        ip           = o.optString("ip", ""),
+                        role         = o.optString("role").takeIf { r -> r.isNotEmpty() && r != "null" },
+                        online       = o.optBoolean("online", false),
+                        batteryPct   = if (o.isNull("battery_pct")) null else o.optInt("battery_pct"),
+                        charging     = if (o.isNull("charging")) null else o.optBoolean("charging"),
+                        lastSeen     = o.optString("last_seen", ""),
+                    )
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun registerDevice(baseUrl: String, token: String, info: JSONObject): Boolean {
+        val body = info.toString().toRequestBody("application/json".toMediaType())
+        val req  = Request.Builder().url("$baseUrl/api/device/register").post(body).withBearer(token).build()
+        return try {
+            standardClient.newCall(req).execute().use { resp -> resp.isSuccessful }
+        } catch (e: Exception) { false }
+    }
+
+    fun setDeviceRole(baseUrl: String, token: String, deviceId: String, role: String) {
+        val body = JSONObject().put("device_id", deviceId).put("role", role).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/device/role").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
+    fun pollCommands(baseUrl: String, token: String, deviceId: String): List<PendingCommand> {
+        val req = Request.Builder()
+            .url("$baseUrl/api/commands/pending?device_id=$deviceId")
+            .withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val arr = JSONObject(resp.body!!.string()).getJSONArray("commands")
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    PendingCommand(o.getInt("id"), o.getString("action"), o.optString("arg", ""))
+                }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun ackCommands(baseUrl: String, token: String, ids: List<Int>) {
+        if (ids.isEmpty()) return
+        val body = JSONObject().put("ids", org.json.JSONArray(ids)).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/commands/ack").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
+    fun probeController(baseUrl: String, token: String): String {
+        val req = Request.Builder().url("$baseUrl/api/probe").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return "(probe failed: ${resp.code})"
+                JSONObject(resp.body!!.string()).optString("probe", "(no output)")
+            }
+        } catch (e: Exception) { "(probe error: ${e.message})" }
     }
 
     fun deleteHistorySession(baseUrl: String, token: String, sessionId: String) {

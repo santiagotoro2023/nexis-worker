@@ -21,6 +21,7 @@ import ch.toroag.nexis.worker.ui.history.HistoryScreen
 import ch.toroag.nexis.worker.ui.login.LoginScreen
 import ch.toroag.nexis.worker.ui.memories.MemoriesScreen
 import ch.toroag.nexis.worker.ui.schedules.SchedulesScreen
+import ch.toroag.nexis.worker.ui.devices.DevicesScreen
 import ch.toroag.nexis.worker.ui.remote.RemoteScreen
 import ch.toroag.nexis.worker.ui.settings.SettingsScreen
 import ch.toroag.nexis.worker.ui.voice.VoiceScreen
@@ -306,6 +307,7 @@ private fun NexisApp(
                 onNavigateToMemories  = { navController.navigate("memories") },
                 onNavigateToHistory   = { navController.navigate("history") },
                 onNavigateToSchedules = { navController.navigate("schedules") },
+                onNavigateToDevices   = { navController.navigate("devices") },
             )
         }
         composable("voice") {
@@ -329,6 +331,9 @@ private fun NexisApp(
         }
         composable("remote") {
             RemoteScreen(onBack = { navController.popBackStack() })
+        }
+        composable("devices") {
+            DevicesScreen(onBack = { navController.popBackStack() })
         }
     }
 }

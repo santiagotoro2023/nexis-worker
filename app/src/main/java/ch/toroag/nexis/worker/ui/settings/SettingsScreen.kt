@@ -32,6 +32,7 @@ fun SettingsScreen(
     onNavigateToMemories:  () -> Unit = {},
     onNavigateToHistory:   () -> Unit = {},
     onNavigateToSchedules: () -> Unit = {},
+    onNavigateToDevices:   () -> Unit = {},
     vm: SettingsViewModel = viewModel(),
 ) {
     val baseUrl       by vm.baseUrl.collectAsState()
@@ -176,6 +177,8 @@ fun SettingsScreen(
                 NavRow("conversation history", onNavigateToHistory)
                 Spacer(Modifier.height(8.dp))
                 NavRow("schedules", onNavigateToSchedules)
+                Spacer(Modifier.height(8.dp))
+                NavRow("device inventory", onNavigateToDevices)
             }
 
             // Push notifications (ntfy)

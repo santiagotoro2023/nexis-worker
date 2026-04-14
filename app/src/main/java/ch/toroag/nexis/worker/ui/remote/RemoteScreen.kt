@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.ui.theme.NxBorder
 import ch.toroag.nexis.worker.ui.theme.NxFg
 import ch.toroag.nexis.worker.ui.theme.NxFg2
+import ch.toroag.nexis.worker.ui.theme.NxGreen
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
 
@@ -27,12 +28,16 @@ fun RemoteScreen(
     onBack: () -> Unit,
     vm:     RemoteViewModel = viewModel(),
 ) {
-    val result    by vm.result.collectAsState()
-    val isLoading by vm.isLoading.collectAsState()
+    val result         by vm.result.collectAsState()
+    val isLoading      by vm.isLoading.collectAsState()
+    val devices        by vm.devices.collectAsState()
+    val selectedDevice by vm.selectedDevice.collectAsState()
+    val devicesLoading by vm.devicesLoading.collectAsState()
 
     var appInput       by remember { mutableStateOf("") }
     var clipboardInput by remember { mutableStateOf("") }
     var volumeInput    by remember { mutableStateOf("50") }
+    var deviceDropdown by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -59,7 +64,81 @@ fun RemoteScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
 
-            // ── App control ───────────────────────────────────────────────────
+            // ── Target device ──────────────────────────────────────────────────
+            RemoteSection("target device") {
+                Box(Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick  = { if (devices.isNotEmpty()) deviceDropdown = true },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape    = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
+                        border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
+                    ) {
+                        when {
+                            devicesLoading -> {
+                                CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("loading…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                            }
+                            selectedDevice != null -> {
+                                val dev = selectedDevice!!
+                                val dotColor = if (dev.online) NxGreen else NxFg2
+                                Text(if (dev.online) "●" else "○", color = dotColor,
+                                     style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.width(6.dp))
+                                Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
+                                dev.role?.let { role ->
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("[$role]", style = MaterialTheme.typography.labelSmall, color = NxOrangeDim)
+                                }
+                                Spacer(Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp), tint = NxFg2)
+                            }
+                            else -> {
+                                Text("no desktop devices", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                                Spacer(Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp), tint = NxFg2)
+                            }
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = deviceDropdown,
+                        onDismissRequest = { deviceDropdown = false },
+                    ) {
+                        devices.forEach { dev ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(if (dev.online) "●" else "○",
+                                             color = if (dev.online) NxGreen else NxFg2,
+                                             style = MaterialTheme.typography.bodySmall)
+                                        Spacer(Modifier.width(8.dp))
+                                        Column {
+                                            Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
+                                            Text("${dev.os}${dev.role?.let { " · [$it]" } ?: ""}",
+                                                 style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                                        }
+                                    }
+                                },
+                                onClick = { vm.selectDevice(dev); deviceDropdown = false },
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                TextButton(
+                    onClick  = { vm.loadDevices() },
+                    modifier = Modifier.align(Alignment.End),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) {
+                    Icon(Icons.Default.Refresh, null, Modifier.size(12.dp), tint = NxFg2)
+                    Spacer(Modifier.width(4.dp))
+                    Text("refresh", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                }
+            }
+
+            // ── App control ────────────────────────────────────────────────────
             RemoteSection("app control") {
                 OutlinedTextField(
                     value         = appInput,
@@ -83,7 +162,7 @@ fun RemoteScreen(
                     !isLoading) { vm.action("windows") }
             }
 
-            // ── Media ─────────────────────────────────────────────────────────
+            // ── Media ──────────────────────────────────────────────────────────
             RemoteSection("media") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RemoteButton("prev",       Icons.Default.SkipPrevious, Modifier.weight(1f), !isLoading) {
@@ -95,7 +174,7 @@ fun RemoteScreen(
                 }
             }
 
-            // ── Volume ────────────────────────────────────────────────────────
+            // ── Volume ─────────────────────────────────────────────────────────
             RemoteSection("volume") {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -125,7 +204,7 @@ fun RemoteScreen(
                 }
             }
 
-            // ── Clipboard ─────────────────────────────────────────────────────
+            // ── Clipboard ──────────────────────────────────────────────────────
             RemoteSection("clipboard") {
                 OutlinedTextField(
                     value         = clipboardInput,
@@ -140,9 +219,12 @@ fun RemoteScreen(
                 Spacer(Modifier.height(8.dp))
                 RemoteButton("copy to PC clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
                     clipboardInput.isNotBlank() && !isLoading) { vm.action("clip", clipboardInput.trim()) }
+                Spacer(Modifier.height(4.dp))
+                RemoteButton("paste PC clipboard on phone", Icons.Default.ContentPaste, Modifier.fillMaxWidth(),
+                    !isLoading) { vm.pasteFromPc() }
             }
 
-            // ── System ────────────────────────────────────────────────────────
+            // ── System ─────────────────────────────────────────────────────────
             RemoteSection("system") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RemoteButton("lock screen", Icons.Default.Lock,    Modifier.weight(1f), !isLoading) {
@@ -155,7 +237,7 @@ fun RemoteScreen(
                     !isLoading) { vm.action("screenshot") }
             }
 
-            // ── Result ────────────────────────────────────────────────────────
+            // ── Result ─────────────────────────────────────────────────────────
             if (isLoading || result.isNotEmpty()) {
                 RemoteSection("result") {
                     if (isLoading && result.isEmpty()) {
@@ -166,9 +248,7 @@ fun RemoteScreen(
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("working…",
-                                style     = MaterialTheme.typography.bodySmall,
-                                color     = NxFg2)
+                            Text("working…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
                         }
                     } else {
                         Text(

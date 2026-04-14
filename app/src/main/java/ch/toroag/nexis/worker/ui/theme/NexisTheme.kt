@@ -20,6 +20,7 @@ val NxFg        = Color(0xFFC4B898)  // --fg
 val NxFg2       = Color(0xFF887766)  // --fg2
 val NxBorder    = Color(0xFF1A1A12)  // --border
 val NxOutline   = Color(0xFF3A3A28)  // slightly brighter for interactive outlines
+val NxGreen     = Color(0xFF4CAF50)  // online status indicator
 
 private val NexisColorScheme = darkColorScheme(
     primary              = NxOrange,
