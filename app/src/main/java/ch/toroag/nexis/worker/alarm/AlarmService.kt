@@ -25,12 +25,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
-import java.util.concurrent.LinkedBlockingQueue
+import kotlin.coroutines.resume
 
 class AlarmService : Service() {
 
@@ -115,15 +117,17 @@ class AlarmService : Service() {
         vibrator?.cancel()
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIF_ID)
 
-        // Run post action on a fresh, service-independent scope so it survives stopSelf()
         if (postActionStr.isNotBlank()) {
-            val freshScope  = CoroutineScope(Dispatchers.IO + SupervisorJob())
-            val url         = postBaseUrl
-            val tok         = postToken
-            val delayMs     = postDelaySecs * 1000L
-            val prompt      = postActionStr
-            val appCtx      = applicationContext
-            freshScope.launch {
+            // Keep service alive as a foreground service during TTS so that MediaPlayer
+            // can play audio on locked screens (stopped services lose media capabilities).
+            startForeground(NOTIF_ID, buildBriefNotification())
+
+            val url     = postBaseUrl
+            val tok     = postToken
+            val delayMs = postDelaySecs * 1000L
+            val prompt  = postActionStr
+            val appCtx  = applicationContext
+            scope.launch {
                 try {
                     delay(delayMs)
                     val prefs       = PreferencesRepository.get(appCtx)
@@ -132,24 +136,71 @@ class AlarmService : Service() {
                     if (resolvedUrl.isEmpty() || resolvedTok.isEmpty()) return@launch
                     val api = NexisApiService(prefs, appCtx)
                     runCatching { api.enableVoice(resolvedUrl, resolvedTok, true) }
-                    val player = AlarmAudioPlayer(api, resolvedUrl, resolvedTok, appCtx.cacheDir)
+
+                    // Audio IDs streamed in from SSE, played sequentially via Channel
+                    val audioIds = Channel<Int>(Channel.UNLIMITED)
+                    val playJob  = launch {
+                        for (id in audioIds) {
+                            val wav = runCatching {
+                                api.fetchAudioChunk(resolvedUrl, resolvedTok, id)
+                            }.getOrNull() ?: continue
+                            playWav(wav, id, appCtx.cacheDir)
+                        }
+                    }
                     api.streamChat(
                         baseUrl      = resolvedUrl,
                         token        = resolvedTok,
                         msg          = prompt,
                         onToken      = {},
                         onClear      = {},
-                        onAudioReady = { id -> player.enqueue(id) },
+                        onAudioReady = { id -> audioIds.trySend(id) },
                         onDone       = {},
                         onError      = {},
                     )
+                    audioIds.close()   // signal no more IDs
+                    playJob.join()     // wait until last WAV finishes playing
                 } catch (_: Exception) {}
-                freshScope.cancel()
+                stopSelf()
             }
+        } else {
+            stopSelf()
         }
-
-        stopSelf()
     }
+
+    /** Plays a WAV file and suspends until playback completes (or fails). */
+    private suspend fun playWav(wav: ByteArray, id: Int, cacheDir: File) {
+        val f = File(cacheDir, "nexis_alarm_tts_$id.wav")
+        f.writeBytes(wav)
+        suspendCancellableCoroutine { cont ->
+            val mp = MediaPlayer()
+            try {
+                mp.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                mp.setDataSource(f.absolutePath)
+                mp.prepare()
+                mp.setOnCompletionListener { f.delete(); mp.release(); if (cont.isActive) cont.resume(Unit) }
+                mp.setOnErrorListener     { _, _, _ -> f.delete(); mp.release(); if (cont.isActive) cont.resume(Unit); true }
+                mp.start()
+            } catch (_: Exception) {
+                f.delete(); runCatching { mp.release() }; if (cont.isActive) cont.resume(Unit)
+            }
+            cont.invokeOnCancellation { f.delete(); runCatching { mp.stop(); mp.release() } }
+        }
+    }
+
+    private fun buildBriefNotification(): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("NeXiS")
+            .setContentText("Preparing your brief…")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .build()
 
     private fun snoozeAlarm(nexisId: String) {
         // Snooze 9 min — does NOT run the post action
@@ -268,49 +319,3 @@ class AlarmService : Service() {
     }
 }
 
-// ── Post-alarm TTS audio player ────────────────────────────────────────────────
-
-private class AlarmAudioPlayer(
-    private val api:      NexisApiService,
-    private val baseUrl:  String,
-    private val token:    String,
-    private val cacheDir: File,
-) {
-    private val queue = LinkedBlockingQueue<Int>()
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-    init { scope.launch { drain() } }
-
-    fun enqueue(id: Int) { queue.offer(id) }
-
-    private suspend fun drain() {
-        while (true) {
-            val id  = queue.take()
-            val wav = api.fetchAudioChunk(baseUrl, token, id) ?: continue
-            playWav(wav, id)
-        }
-    }
-
-    private suspend fun playWav(wav: ByteArray, id: Int) {
-        val f = File(cacheDir, "nexis_alarm_tts_$id.wav")
-        f.writeBytes(wav)
-        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
-            val mp = MediaPlayer()
-            try {
-                mp.setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
-                mp.setDataSource(f.absolutePath)
-                mp.prepare()
-                mp.setOnCompletionListener { f.delete(); mp.release(); cont.resume(Unit) {} }
-                mp.setOnErrorListener     { _, _, _ -> f.delete(); mp.release(); cont.resume(Unit) {}; true }
-                mp.start()
-            } catch (e: Exception) {
-                f.delete(); runCatching { mp.release() }; cont.resume(Unit) {}
-            }
-        }
-    }
-}

@@ -44,7 +44,7 @@ class DevicesViewModel : AutoCloseable {
     }
 
     fun loadDevices() {
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             _isLoading.value = true
             _devices.value = runCatching { api.getDevices(baseUrl, token) }.getOrDefault(emptyList())
             _isLoading.value = false

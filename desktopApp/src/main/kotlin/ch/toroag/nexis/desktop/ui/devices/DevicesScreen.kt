@@ -26,6 +26,7 @@ fun DevicesScreen(vm: DevicesViewModel) {
     val probeLoading by vm.probeLoading.collectAsState()
     val passwords    by vm.passwords.collectAsState()
 
+    LaunchedEffect(Unit) { vm.loadDevices() }
     LaunchedEffect(devices) {
         if (devices.isNotEmpty()) vm.loadPasswords(devices.map { it.deviceId })
     }
