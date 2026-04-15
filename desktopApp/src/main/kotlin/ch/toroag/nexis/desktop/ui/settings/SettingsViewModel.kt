@@ -3,6 +3,7 @@ package ch.toroag.nexis.desktop.ui.settings
 import ch.toroag.nexis.desktop.data.CertPinStore
 import ch.toroag.nexis.desktop.data.NexisApiService
 import ch.toroag.nexis.desktop.data.PreferencesRepository
+import ch.toroag.nexis.desktop.util.DesktopUpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -10,6 +11,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+
+sealed interface UpdateState {
+    data object Idle        : UpdateState
+    data object Checking    : UpdateState
+    data object UpToDate    : UpdateState
+    data class  Available(val release: DesktopUpdateChecker.Release) : UpdateState
+    data class  Downloading(val progress: Int)                        : UpdateState
+    data object Installing  : UpdateState
+    data object Done        : UpdateState
+    data class  Error(val msg: String)                                : UpdateState
+}
 
 class SettingsViewModel : AutoCloseable {
 
@@ -25,6 +37,9 @@ class SettingsViewModel : AutoCloseable {
 
     private val _status        = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status
+
+    private val _updateState   = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val updateState: StateFlow<UpdateState> = _updateState
 
     private val _health        = MutableStateFlow<NexisApiService.HealthInfo?>(null)
     val health: StateFlow<NexisApiService.HealthInfo?> = _health
@@ -83,6 +98,33 @@ class SettingsViewModel : AutoCloseable {
     }
 
     fun clearStatus() { _status.value = null }
+
+    fun checkForUpdate() {
+        if (_updateState.value is UpdateState.Checking || _updateState.value is UpdateState.Downloading) return
+        scope.launch {
+            _updateState.value = UpdateState.Checking
+            val release = DesktopUpdateChecker.checkForUpdate()
+            _updateState.value = if (release != null) UpdateState.Available(release) else UpdateState.UpToDate
+        }
+    }
+
+    fun downloadAndInstall(release: DesktopUpdateChecker.Release) {
+        scope.launch {
+            _updateState.value = UpdateState.Downloading(0)
+            val file = DesktopUpdateChecker.downloadDeb(release) { pct ->
+                _updateState.value = UpdateState.Downloading(pct)
+            }
+            if (file == null) {
+                _updateState.value = UpdateState.Error("Download failed")
+                return@launch
+            }
+            _updateState.value = UpdateState.Installing
+            val ok = DesktopUpdateChecker.installDeb(file)
+            _updateState.value = if (ok) UpdateState.Done else UpdateState.Error("Install failed — try: sudo dpkg -i ${file.absolutePath}")
+        }
+    }
+
+    fun dismissUpdate() { _updateState.value = UpdateState.Idle }
 
     override fun close() {}
 }

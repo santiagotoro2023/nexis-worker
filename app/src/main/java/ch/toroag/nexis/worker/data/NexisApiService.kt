@@ -205,6 +205,64 @@ class NexisApiService(
         onClosed()
     }
 
+    /** Like [streamSync] but also surfaces monitor alerts from the daemon. */
+    fun streamSyncWithAlerts(
+        baseUrl:  String,
+        token:    String,
+        onEvent:  (typing: Boolean, histLen: Int) -> Unit,
+        onAlert:  (type: String, msg: String, value: Float) -> Unit,
+        onClosed: () -> Unit,
+    ) {
+        val req = Request.Builder()
+            .url("$baseUrl/api/sync")
+            .withBearer(token)
+            .addHeader("Accept", "text/event-stream")
+            .get().build()
+        try {
+            streamClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) { onClosed(); return }
+                val reader = BufferedReader(InputStreamReader(resp.body!!.byteStream()))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val l = line!!
+                    if (!l.startsWith("data: ")) continue
+                    try {
+                        val obj = org.json.JSONObject(l.removePrefix("data: "))
+                        if (obj.has("alert")) {
+                            val a = obj.getJSONObject("alert")
+                            onAlert(a.optString("type"), a.optString("msg"),
+                                    a.optDouble("val", 0.0).toFloat())
+                        } else {
+                            onEvent(obj.optBoolean("typing", false), obj.optInt("hist_len", 0))
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+        onClosed()
+    }
+
+    // ── Code interpreter ──────────────────────────────────────────────────────
+
+    data class ExecResult(val stdout: String, val stderr: String,
+                          val exitCode: Int, val runtimeMs: Int)
+
+    fun execCode(baseUrl: String, token: String, lang: String,
+                 code: String, timeout: Int = 30): ExecResult {
+        val body = JSONObject()
+            .put("lang", lang).put("code", code).put("timeout", timeout)
+            .toString().toRequestBody("application/json".toMediaType())
+        val client = buildClient((timeout + 10).toLong())
+        val req = Request.Builder().url("$baseUrl/api/exec").post(body).withBearer(token).build()
+        return try {
+            client.newCall(req).execute().use { resp ->
+                val o = JSONObject(resp.body?.string() ?: "{}")
+                ExecResult(o.optString("stdout"), o.optString("stderr"),
+                           o.optInt("exit_code", -1), o.optInt("runtime_ms", 0))
+            }
+        } catch (e: Exception) { ExecResult("", e.message ?: "error", -1, 0) }
+    }
+
     // ── Health / dashboard ────────────────────────────────────────────────────
 
     data class HealthInfo(

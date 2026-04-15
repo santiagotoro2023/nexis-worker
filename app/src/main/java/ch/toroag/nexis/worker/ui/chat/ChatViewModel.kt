@@ -162,7 +162,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         _connectionStatus.value = ConnectionStatus.Connecting
         syncJob?.cancel()
         syncJob = viewModelScope.launch(Dispatchers.IO) {
-            api.streamSync(
+            api.streamSyncWithAlerts(
                 baseUrl  = baseUrl,
                 token    = token,
                 onEvent  = { typing, histLen ->
@@ -182,6 +182,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         }
                         syncHistLen = maxOf(syncHistLen, histLen)
                     }
+                },
+                onAlert  = { _, msg, _ ->
+                    // Show in the chat error banner so the user sees it inline
+                    _errorMessage.value = "⚠ $msg"
                 },
                 onClosed = {
                     _connectionStatus.value = ConnectionStatus.Disconnected

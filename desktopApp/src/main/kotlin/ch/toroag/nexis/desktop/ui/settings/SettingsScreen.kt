@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.toroag.nexis.desktop.ui.theme.*
+import ch.toroag.nexis.desktop.util.DesktopUpdateChecker
 
 @Composable
 fun SettingsScreen(
@@ -26,6 +27,7 @@ fun SettingsScreen(
     val status        by vm.status.collectAsState()
     val health        by vm.health.collectAsState()
     val healthLoading by vm.healthLoading.collectAsState()
+    val updateState   by vm.updateState.collectAsState()
 
     var reAuthPw by remember { mutableStateOf("") }
 
@@ -148,6 +150,11 @@ fun SettingsScreen(
             Text(status!!, color = NxOrange, style = MaterialTheme.typography.bodySmall)
         }
 
+        // App update
+        SettingsSection("app update") {
+            UpdateSection(updateState, vm::checkForUpdate, vm::downloadAndInstall, vm::dismissUpdate)
+        }
+
         Spacer(Modifier.height(16.dp))
 
         OutlinedButton(
@@ -157,6 +164,101 @@ fun SettingsScreen(
             colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
         ) { Text("disconnect") }
+    }
+}
+
+@Composable
+private fun UpdateSection(
+    state:             UpdateState,
+    onCheck:           () -> Unit,
+    onInstall:         (DesktopUpdateChecker.Release) -> Unit,
+    onDismiss:         () -> Unit,
+) {
+    when (state) {
+        is UpdateState.Idle -> {
+            Button(
+                onClick  = onCheck,
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(4.dp),
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor = NxOrangeDim,
+                    contentColor   = MaterialTheme.colorScheme.background,
+                ),
+            ) { Text("check for updates") }
+        }
+        is UpdateState.Checking -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("checking...", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+            }
+        }
+        is UpdateState.UpToDate -> {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("up to date", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                TextButton(onClick = onDismiss) { Text("dismiss", color = NxFg2) }
+            }
+        }
+        is UpdateState.Available -> {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("update available: ${state.release.tag}",
+                     style = MaterialTheme.typography.bodySmall, color = NxOrange)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick  = { onInstall(state.release) },
+                        modifier = Modifier.weight(1f),
+                        shape    = RoundedCornerShape(4.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = NxOrangeDim,
+                            contentColor   = MaterialTheme.colorScheme.background,
+                        ),
+                    ) { Text("download & install") }
+                    OutlinedButton(
+                        onClick  = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape    = RoundedCornerShape(4.dp),
+                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2),
+                        border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
+                    ) { Text("later") }
+                }
+            }
+        }
+        is UpdateState.Downloading -> {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("downloading... ${state.progress}%",
+                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                LinearProgressIndicator(
+                    progress        = { state.progress / 100f },
+                    modifier        = Modifier.fillMaxWidth(),
+                    color           = NxOrange,
+                    trackColor      = NxBorder,
+                )
+            }
+        }
+        is UpdateState.Installing -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("installing — approve the system dialog...",
+                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
+            }
+        }
+        is UpdateState.Done -> {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("installed — restart to apply update",
+                     style = MaterialTheme.typography.bodySmall, color = NxOrange)
+                TextButton(onClick = onDismiss) { Text("ok", color = NxFg2) }
+            }
+        }
+        is UpdateState.Error -> {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(state.msg, style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onDismiss) { Text("dismiss", color = NxFg2) }
+            }
+        }
     }
 }
 

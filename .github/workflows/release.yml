@@ -1,4 +1,4 @@
-name: Build & Release APK
+name: Build & Release
 
 on:
   push:
@@ -14,33 +14,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
-      # Installs Gradle 8.9 and handles caching — no wrapper needed in repo
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+
+      # Remove any machine-specific java.home override that may be in gradle.properties
+      - name: Strip local gradle.properties overrides
+        run: sed -i '/^org\.gradle\.java\.home/d' gradle.properties
 
       - name: Prepare keystore
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/nexis-release.jks
           else
-            # No keystore secret set — generate a temporary one for CI validation only
-            keytool -genkeypair -keystore /tmp/nexis-release.jks -storetype JKS -alias nexis -keyalg RSA -keysize 2048 -validity 1 -storepass temppass -keypass temppass -dname "CN=CI, O=nexis, C=CH" -noprompt
+            keytool -genkeypair -keystore /tmp/nexis-release.jks -storetype JKS \
+              -alias nexis -keyalg RSA -keysize 2048 -validity 1 \
+              -storepass temppass -keypass temppass \
+              -dname "CN=CI, O=nexis, C=CH" -noprompt
             echo "KEYSTORE_PASSWORD=temppass" >> $GITHUB_ENV
-            echo "KEY_ALIAS=nexis" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=temppass" >> $GITHUB_ENV
+            echo "KEY_ALIAS=nexis"            >> $GITHUB_ENV
+            echo "KEY_PASSWORD=temppass"      >> $GITHUB_ENV
           fi
 
       - name: Set build timestamp
         run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
 
+      # ── Android APK ──────────────────────────────────────────────────────────
       - name: Build and sign release APK
         env:
           BUILD_TIMESTAMP:   ${{ env.BUILD_TIMESTAMP }}
@@ -48,11 +54,26 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleRelease --no-daemon
+        run: gradle :app:assembleRelease --no-daemon
 
+      # ── Desktop .deb ─────────────────────────────────────────────────────────
+      - name: Install .deb build dependencies
+        run: sudo apt-get install -y fakeroot binutils
+
+      - name: Build desktop .deb
+        env:
+          BUILD_TIMESTAMP: ${{ env.BUILD_TIMESTAMP }}
+        run: gradle :desktopApp:packageDeb --no-daemon
+
+      # ── GitHub Release ────────────────────────────────────────────────────────
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.BUILD_TIMESTAMP }}
           name:     NeXiS Worker v${{ env.BUILD_TIMESTAMP }}
-          files:    app/build/outputs/apk/release/app-release.apk
+          body: |
+            **Android:** install the APK directly or let the app auto-update.
+            **Linux desktop:** install the `.deb` via `sudo dpkg -i nexis-worker-desktop_*.deb` or let the desktop app auto-update.
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            desktopApp/build/compose/binaries/main/deb/nexis-worker-desktop_1.0.0_amd64.deb

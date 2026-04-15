@@ -33,6 +33,7 @@ import ch.toroag.nexis.desktop.ui.settings.SettingsScreen
 import ch.toroag.nexis.desktop.ui.settings.SettingsViewModel
 import ch.toroag.nexis.desktop.ui.theme.NexisTheme
 import ch.toroag.nexis.desktop.ui.theme.*
+import ch.toroag.nexis.desktop.util.SystemTrayManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -51,11 +52,34 @@ enum class Screen(
 
 fun main() = application {
     val windowState = rememberWindowState(width = 1100.dp, height = 720.dp)
+    var isVisible   by remember { mutableStateOf(true) }
+
+    // Install tray icon once; open/quit callbacks talk to the Compose application
+    DisposableEffect(Unit) {
+        SystemTrayManager.install(
+            onOpen = { isVisible = true },
+            onQuit = {
+                SystemTrayManager.remove()
+                exitApplication()
+            },
+        )
+        onDispose { SystemTrayManager.remove() }
+    }
 
     Window(
-        onCloseRequest = ::exitApplication,
-        title          = "NeXiS Worker",
-        state          = windowState,
+        onCloseRequest = {
+            // Hide to tray instead of exiting (only if tray is supported)
+            if (SystemTrayManager.isSupported) {
+                isVisible = false
+                SystemTrayManager.notify("NeXiS", "Running in background — click the tray icon to reopen")
+            } else {
+                SystemTrayManager.remove()
+                exitApplication()
+            }
+        },
+        title      = "NeXiS Worker",
+        state      = windowState,
+        visible    = isVisible,
     ) {
         NexisTheme {
             App()

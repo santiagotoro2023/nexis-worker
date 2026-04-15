@@ -13,6 +13,32 @@ kotlin {
     jvmToolchain(21)
 }
 
+// ── Embed BUILD_TIMESTAMP at compile time ──────────────────────────────────────
+val buildTimestamp: String = System.getenv("BUILD_TIMESTAMP") ?: "0"
+
+val generateBuildConfig by tasks.registering {
+    val outputDir = layout.buildDirectory.dir("generated/buildconfig/kotlin")
+    outputs.dir(outputDir)
+    inputs.property("buildTimestamp", buildTimestamp)
+    doLast {
+        val dir = outputDir.get().asFile.also { it.mkdirs() }
+        File(dir, "BuildConfig.kt").writeText(
+            """
+            package ch.toroag.nexis.desktop
+            object BuildConfig {
+                /** Unix timestamp of the CI build, 0 for local/dev builds. */
+                const val VERSION_TIMESTAMP = ${buildTimestamp}L
+            }
+            """.trimIndent()
+        )
+    }
+}
+
+kotlin.sourceSets.main {
+    kotlin.srcDir(generateBuildConfig)
+}
+
+// ── Dependencies ──────────────────────────────────────────────────────────────
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -24,6 +50,7 @@ dependencies {
     implementation("org.json:json:20240303")
 }
 
+// ── Native distributions (.deb) ───────────────────────────────────────────────
 compose.desktop {
     application {
         mainClass = "ch.toroag.nexis.desktop.MainKt"

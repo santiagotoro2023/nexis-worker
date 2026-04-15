@@ -28,6 +28,7 @@ import ch.toroag.nexis.worker.ui.voice.VoiceScreen
 import ch.toroag.nexis.worker.ui.theme.NexisTheme
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxFg2
+import ch.toroag.nexis.worker.service.NexisBackgroundService
 import ch.toroag.nexis.worker.util.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -105,6 +106,18 @@ class MainActivity : ComponentActivity() {
 
         // Run the update check after UI is ready
         lifecycleScope.launch(Dispatchers.IO) { runStartupSequence() }
+
+        // Start background sync service once the user is logged in
+        lifecycleScope.launch {
+            val prefs = PreferencesRepository.get(this@MainActivity)
+            prefs.token.collect { token ->
+                if (token.isNotEmpty()) {
+                    NexisBackgroundService.start(this@MainActivity)
+                } else {
+                    NexisBackgroundService.stop(this@MainActivity)
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -457,4 +457,89 @@ class NexisApiService(
             }
         } catch (e: Exception) { null }
     }
+
+    // ── Code interpreter ──────────────────────────────────────────────────────
+
+    data class ExecResult(val stdout: String, val stderr: String,
+                          val exitCode: Int, val runtimeMs: Int)
+
+    fun execCode(baseUrl: String, token: String, lang: String, code: String,
+                 timeout: Int = 30): ExecResult {
+        val body = JSONObject().put("lang", lang).put("code", code).put("timeout", timeout)
+            .toString().toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/exec")
+            .post(body).withBearer(token).build()
+        val client = buildClient(timeout.toLong() + 10)
+        return try {
+            client.newCall(req).execute().use { resp ->
+                val o = JSONObject(resp.body?.string() ?: "{}")
+                ExecResult(o.optString("stdout"), o.optString("stderr"),
+                           o.optInt("exit_code", -1), o.optInt("runtime_ms", 0))
+            }
+        } catch (e: Exception) { ExecResult("", e.message ?: "error", -1, 0) }
+    }
+
+    // ── STT transcription (remote Whisper) ────────────────────────────────────
+
+    fun transcribeAudio(baseUrl: String, token: String, wavBytes: ByteArray): String {
+        val body = wavBytes.toRequestBody("audio/wav".toMediaType())
+        val req  = Request.Builder().url("$baseUrl/api/stt/transcribe")
+            .post(body).withBearer(token).build()
+        return try {
+            streamClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return ""
+                JSONObject(resp.body?.string() ?: "{}").optString("text", "")
+            }
+        } catch (e: Exception) { "" }
+    }
+
+    // ── System monitor ────────────────────────────────────────────────────────
+
+    data class MonitorStats(val cpu: Float, val mem: Float, val disk: Float)
+
+    fun getMonitorStats(baseUrl: String, token: String): MonitorStats? {
+        val req = Request.Builder().url("$baseUrl/api/monitor").withBearer(token).get().build()
+        return try {
+            standardClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val o = JSONObject(resp.body!!.string())
+                MonitorStats(o.optDouble("cpu", 0.0).toFloat(),
+                             o.optDouble("mem", 0.0).toFloat(),
+                             o.optDouble("disk", 0.0).toFloat())
+            }
+        } catch (e: Exception) { null }
+    }
+
+    // Extended streamSync that also surfaces monitor alerts
+    fun streamSyncWithAlerts(
+        baseUrl:  String,
+        token:    String,
+        onEvent:  (typing: Boolean, histLen: Int) -> Unit,
+        onAlert:  (type: String, msg: String, val_: Float) -> Unit,
+        onClosed: () -> Unit,
+    ) {
+        val req = Request.Builder().url("$baseUrl/api/sync")
+            .withBearer(token).addHeader("Accept", "text/event-stream").get().build()
+        try {
+            streamClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) { onClosed(); return }
+                val reader = BufferedReader(InputStreamReader(resp.body!!.byteStream()))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val l = line!!; if (!l.startsWith("data: ")) continue
+                    try {
+                        val obj = JSONObject(l.removePrefix("data: "))
+                        if (obj.has("alert")) {
+                            val a = obj.getJSONObject("alert")
+                            onAlert(a.optString("type"), a.optString("msg"),
+                                    a.optDouble("val", 0.0).toFloat())
+                        } else {
+                            onEvent(obj.optBoolean("typing", false), obj.optInt("hist_len", 0))
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+        onClosed()
+    }
 }

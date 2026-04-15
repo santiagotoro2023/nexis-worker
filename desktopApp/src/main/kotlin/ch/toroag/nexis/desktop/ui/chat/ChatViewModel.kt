@@ -3,6 +3,7 @@ package ch.toroag.nexis.desktop.ui.chat
 import ch.toroag.nexis.desktop.data.NexisApiService
 import ch.toroag.nexis.desktop.data.PreferencesRepository
 import ch.toroag.nexis.desktop.util.DesktopCommandExecutor
+import ch.toroag.nexis.desktop.util.SystemTrayManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,9 +19,11 @@ import org.json.JSONObject
 import java.net.InetAddress
 
 data class ChatMessage(
-    val role:    String,
-    val content: String,
-    val id:      Long = System.currentTimeMillis(),
+    val role:       String,
+    val content:    String,
+    val id:         Long    = System.currentTimeMillis(),
+    val hasAttach:  Boolean = false,
+    val attachName: String  = "",
 )
 
 enum class ConnectionStatus { Connected, Connecting, Disconnected }
@@ -51,6 +54,12 @@ class ChatViewModel : AutoCloseable {
 
     private val _connectionStatus = MutableStateFlow(ConnectionStatus.Connecting)
     val connectionStatus: StateFlow<ConnectionStatus> = _connectionStatus
+
+    private val _voiceEnabled = MutableStateFlow(false)
+    val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
+
+    private val _monitorAlert = MutableStateFlow<String?>(null)
+    val monitorAlert: StateFlow<String?> = _monitorAlert
 
     private var baseUrl      = ""
     private var token        = ""
@@ -131,7 +140,7 @@ class ChatViewModel : AutoCloseable {
         _connectionStatus.value = ConnectionStatus.Connecting
         syncJob?.cancel()
         syncJob = scope.launch {
-            api.streamSync(
+            api.streamSyncWithAlerts(
                 baseUrl  = baseUrl,
                 token    = token,
                 onEvent  = { typing, histLen ->
@@ -154,6 +163,10 @@ class ChatViewModel : AutoCloseable {
                         syncHistLen = maxOf(syncHistLen, histLen)
                     }
                 },
+                onAlert  = { type, msg, _ ->
+                    _monitorAlert.value = msg
+                    SystemTrayManager.notify("NeXiS Monitor", msg, if (type == "disk") 1 else 0)
+                },
                 onClosed = {
                     _connectionStatus.value = ConnectionStatus.Disconnected
                     _externalTyping.value = false
@@ -168,35 +181,51 @@ class ChatViewModel : AutoCloseable {
         }
     }
 
-    fun sendMessage(text: String) {
-        if (_isStreaming.value || text.isBlank()) return
+    fun sendMessage(
+        text:         String,
+        fileData:     String?  = null,
+        fileMimeType: String?  = null,
+        fileName:     String?  = null,
+    ) {
+        if (_isStreaming.value || (text.isBlank() && fileData == null)) return
         scope.launch {
-            _messages.value = _messages.value + ChatMessage("user", text)
+            val hasAttach = fileData != null
+            _messages.value = _messages.value + ChatMessage(
+                "user", text, hasAttach = hasAttach,
+                attachName = fileName ?: "")
             val assistantId = System.currentTimeMillis() + 1
             _messages.value = _messages.value + ChatMessage("assistant", "", assistantId)
             _isStreaming.value = true
             _errorMessage.value = null
 
             api.streamChat(
-                baseUrl  = baseUrl,
-                token    = token,
-                msg      = text,
-                onToken  = { tok ->
+                baseUrl      = baseUrl,
+                token        = token,
+                msg          = text,
+                fileData     = fileData,
+                fileMimeType = fileMimeType,
+                fileName     = fileName,
+                onToken      = { tok ->
                     _messages.value = _messages.value.map { m ->
                         if (m.id == assistantId) m.copy(content = m.content + tok) else m
                     }
                 },
-                onClear  = {
+                onClear      = {
                     _messages.value = _messages.value.map { m ->
                         if (m.id == assistantId) m.copy(content = "") else m
                     }
                 },
-                onAudioReady = { /* desktop doesn't play TTS audio */ },
-                onDone   = {
+                onAudioReady = { /* desktop TTS: audio plays on server, client gets narration inline */ },
+                onDone       = {
                     _isStreaming.value = false
                     syncHistLen = _messages.value.size
+                    // Notify tray if window is hidden
+                    val lastAssistant = _messages.value.lastOrNull { it.role == "assistant" }
+                    if (lastAssistant != null && lastAssistant.content.length > 10) {
+                        SystemTrayManager.notify("NeXiS", lastAssistant.content.take(80))
+                    }
                 },
-                onError  = { err ->
+                onError      = { err ->
                     _isStreaming.value = false
                     _errorMessage.value = if (err == "401") "Session expired — please log in again"
                                          else "Error: $err"
@@ -204,6 +233,29 @@ class ChatViewModel : AutoCloseable {
             )
         }
     }
+
+    /** Transcribe [wavBytes] via the daemon's Whisper endpoint and send result as a chat message. */
+    fun transcribeAndSend(wavBytes: ByteArray) {
+        scope.launch {
+            val text = runCatching { api.transcribeAudio(baseUrl, token, wavBytes) }.getOrDefault("")
+            if (text.isNotBlank()) sendMessage(text)
+        }
+    }
+
+    fun toggleVoice(on: Boolean) {
+        _voiceEnabled.value = on
+        scope.launch { runCatching { api.enableVoice(baseUrl, token, on) } }
+    }
+
+    fun dismissMonitorAlert() { _monitorAlert.value = null }
+
+    /** Trigger a server-side screenshot and return it as a PendingAttachment-compatible triple. */
+    fun takeScreenshotAndAttach(): Any? = runCatching {
+        val raw = api.desktopAction(baseUrl, token, "screenshot")
+        // The daemon returns the description, not the raw image — grab region instead
+        // For proper image attach, use region action which returns base64
+        null // the screenshot action currently returns a description; use /api/desktop region for images
+    }.getOrNull()
 
     fun abortStreaming() {
         scope.launch {

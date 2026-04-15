@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:allowBackup="true"
@@ -48,6 +50,12 @@
                 <action android:name="ch.toroag.nexis.worker.INSTALL_RESULT" />
             </intent-filter>
         </receiver>
+
+        <!-- Background sync service (foreground, keeps SSE alive while app is minimised) -->
+        <service
+            android:name=".service.NexisBackgroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- FileProvider for APK self-update installs -->
         <provider
