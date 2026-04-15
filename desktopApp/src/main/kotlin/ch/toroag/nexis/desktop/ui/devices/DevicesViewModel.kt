@@ -45,8 +45,12 @@ class DevicesViewModel : AutoCloseable {
 
     fun loadDevices() {
         scope.launch(Dispatchers.IO) {
+            // Wait for credentials if the DataStore hasn't emitted yet
+            val u = baseUrl.ifEmpty { prefs.baseUrl.first() }
+            val t = token.ifEmpty { prefs.token.first() }
+            if (u.isEmpty() || t.isEmpty()) return@launch
             _isLoading.value = true
-            _devices.value = runCatching { api.getDevices(baseUrl, token) }.getOrDefault(emptyList())
+            _devices.value = runCatching { api.getDevices(u, t) }.getOrDefault(emptyList())
             _isLoading.value = false
         }
     }
