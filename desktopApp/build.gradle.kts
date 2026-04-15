@@ -85,15 +85,16 @@ val debRuntimeDeps = "playerctl, libnotify-bin, xdg-utils, xclip"
 tasks.register("packageDebWithDeps") {
     dependsOn("packageDeb")
     description = "Repack the .deb to inject Depends: $debRuntimeDeps"
+    val buildDir = layout.buildDirectory
     doLast {
-        val debDir = layout.buildDirectory.dir("compose/binaries/main/deb").get().asFile
+        val debDir = buildDir.dir("compose/binaries/main/deb").get().asFile
         val deb    = debDir.listFiles()?.firstOrNull { it.extension == "deb" }
             ?: error("No .deb found in ${debDir.absolutePath}")
 
-        val tmp = layout.buildDirectory.dir("compose/deb-repack").get().asFile
+        val tmp = buildDir.dir("compose/deb-repack").get().asFile
         tmp.deleteRecursively(); tmp.mkdirs()
 
-        exec { commandLine("dpkg-deb", "-R", deb.absolutePath, tmp.absolutePath) }
+        project.exec { commandLine("dpkg-deb", "-R", deb.absolutePath, tmp.absolutePath) }
 
         val control = File(tmp, "DEBIAN/control")
         val text    = control.readText()
@@ -101,7 +102,7 @@ tasks.register("packageDebWithDeps") {
             control.writeText(text.trimEnd() + "\nDepends: $debRuntimeDeps\n")
         }
 
-        exec { commandLine("fakeroot", "dpkg-deb", "-b", tmp.absolutePath, deb.absolutePath) }
+        project.exec { commandLine("fakeroot", "dpkg-deb", "-b", tmp.absolutePath, deb.absolutePath) }
         tmp.deleteRecursively()
         println("Repacked: ${deb.name}  (Depends: $debRuntimeDeps)")
     }
