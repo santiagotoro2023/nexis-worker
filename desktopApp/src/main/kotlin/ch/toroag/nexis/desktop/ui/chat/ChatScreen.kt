@@ -13,13 +13,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.DragData
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.awtTransferable
+import java.awt.datatransfer.DataFlavor
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -30,7 +31,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Base64
 import java.util.Date
@@ -51,7 +51,7 @@ private data class PendingAttachment(
     val isImage:  Boolean,
 )
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(vm: ChatViewModel) {
     val messages       by vm.messages.collectAsState()
@@ -95,12 +95,13 @@ fun ChatScreen(vm: ChatViewModel) {
     val dndTarget = remember {
         object : DragAndDropTarget {
             override fun onDrop(event: DragAndDropEvent): Boolean {
-                val data = event.dragData()
-                if (data is DragData.FilesList) {
-                    val path = data.readFiles().firstOrNull() ?: return false
+                val transferable = event.awtTransferable
+                if (transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                    @Suppress("UNCHECKED_CAST")
+                    val files = transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<File>
+                    val file  = files?.firstOrNull() ?: return false
                     scope.launch(Dispatchers.IO) {
-                        val f      = File(URI(path))
-                        val attach = fileToAttachment(f)
+                        val attach = fileToAttachment(file)
                         withContext(Dispatchers.Main) {
                             pendingAttach = attach
                             isDragOver    = false
@@ -108,6 +109,7 @@ fun ChatScreen(vm: ChatViewModel) {
                     }
                     return true
                 }
+                isDragOver = false
                 return false
             }
             override fun onEntered(event: DragAndDropEvent) { isDragOver = true }
@@ -332,12 +334,7 @@ fun ChatScreen(vm: ChatViewModel) {
                             text    = { Text("Screenshot", color = NxFg) },
                             onClick = {
                                 showAttachMenu = false
-                                scope.launch {
-                                    val result = withContext(Dispatchers.IO) {
-                                        vm.takeScreenshotAndAttach()
-                                    }
-                                    if (result != null) pendingAttach = result
-                                }
+                                vm.sendMessage("//screenshot")
                             },
                         )
                     }

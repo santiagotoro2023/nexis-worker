@@ -249,14 +249,6 @@ class ChatViewModel : AutoCloseable {
 
     fun dismissMonitorAlert() { _monitorAlert.value = null }
 
-    /** Trigger a server-side screenshot and return it as a PendingAttachment-compatible triple. */
-    fun takeScreenshotAndAttach(): Any? = runCatching {
-        val raw = api.desktopAction(baseUrl, token, "screenshot")
-        // The daemon returns the description, not the raw image — grab region instead
-        // For proper image attach, use region action which returns base64
-        null // the screenshot action currently returns a description; use /api/desktop region for images
-    }.getOrNull()
-
     fun abortStreaming() {
         scope.launch {
             runCatching { api.abortChat(baseUrl, token) }
