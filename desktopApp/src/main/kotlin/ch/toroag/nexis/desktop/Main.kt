@@ -89,7 +89,7 @@ fun main() = application {
         val awtWindow = window
 
         NexisTheme {
-            Column(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 // ── Custom title bar ───────────────────────────────────────────
                 // Drag-to-move implemented via AWT mouse coordinates rather than
                 // WindowDraggableArea (not available in this Compose version).
@@ -125,7 +125,7 @@ fun main() = application {
                         }
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().height(36.dp)
+                        Modifier.fillMaxWidth().height(40.dp)
                             .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -137,20 +137,22 @@ fun main() = application {
                         )
                         // Minimise
                         Box(
-                            Modifier.size(28.dp).clickable { windowState.isMinimized = true },
+                            Modifier.size(36.dp).clickable { windowState.isMinimized = true },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("─", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                            Text("─", color = NxFg2,
+                                 style = MaterialTheme.typography.bodyMedium)
                         }
                         // Close / hide to tray
                         Box(
-                            Modifier.size(28.dp).clickable {
+                            Modifier.size(36.dp).clickable {
                                 if (SystemTrayManager.isSupported) isVisible = false
                                 else { SystemTrayManager.remove(); exitApplication() }
                             },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("✕", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                            Text("✕", color = NxFg2,
+                                 style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                     HorizontalDivider(color = NxBorder, thickness = 0.5.dp)

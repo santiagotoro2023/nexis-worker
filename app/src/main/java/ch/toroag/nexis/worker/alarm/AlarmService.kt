@@ -35,8 +35,8 @@ import java.util.concurrent.LinkedBlockingQueue
 class AlarmService : Service() {
 
     companion object {
-        const val CHANNEL_ID    = "nexis_alarm"
-        const val NOTIF_ID      = 9001
+        const val CHANNEL_ID     = "nexis_alarm"
+        const val NOTIF_ID       = 9001
         const val ACTION_DISMISS = "ch.toroag.nexis.worker.ALARM_DISMISS"
         const val ACTION_SNOOZE  = "ch.toroag.nexis.worker.ALARM_SNOOZE"
 
@@ -48,55 +48,59 @@ class AlarmService : Service() {
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     private var audioTrack: AudioTrack? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var vibrator: Vibrator? = null
-    private val audioQueue = LinkedBlockingQueue<ByteArray>()
-    private var dismissed = false
+    private var wakeLock:   PowerManager.WakeLock? = null
+    private var vibrator:   Vibrator? = null
+    private var dismissed   = false
+
+    // Post-action state — set in onStartCommand, used in dismiss()
+    private var postDelaySecs = 0
+    private var postActionStr = ""
+    private var postBaseUrl   = ""
+    private var postToken     = ""
+    private var alarmLabel    = "NeXiS Alarm"
+    private var alarmNexisId  = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         ensureChannel()
-
-        // Acquire a wake lock so CPU stays on while playing
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "nexis:alarm_wake_lock",
-        ).also { it.acquire(10 * 60 * 1000L) } // max 10 min
+        ).also { it.acquire(10 * 60 * 1000L) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_DISMISS) {
-            dismiss(); return START_NOT_STICKY
-        }
-        if (intent?.action == ACTION_SNOOZE) {
-            snooze(intent.getStringExtra("nexis_id") ?: ""); return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_DISMISS -> { dismiss(); return START_NOT_STICKY }
+            ACTION_SNOOZE  -> { snoozeAlarm(intent.getStringExtra("nexis_id") ?: ""); return START_NOT_STICKY }
         }
 
-        val label      = intent?.getStringExtra("label")      ?: "NeXiS Alarm"
-        val nexisId    = intent?.getStringExtra("nexis_id")   ?: ""
-        val postDelay  = intent?.getIntExtra("post_delay", 0) ?: 0
-        val postAction = intent?.getStringExtra("post_action") ?: ""
-        val baseUrl    = intent?.getStringExtra("base_url")   ?: ""
-        val token      = intent?.getStringExtra("token")      ?: ""
+        alarmLabel    = intent?.getStringExtra("label")        ?: "NeXiS Alarm"
+        alarmNexisId  = intent?.getStringExtra("nexis_id")     ?: ""
+        postDelaySecs = intent?.getIntExtra("post_delay", 0)   ?: 0
+        postActionStr = intent?.getStringExtra("post_action")  ?: ""
+        postBaseUrl   = intent?.getStringExtra("base_url")     ?: ""
+        postToken     = intent?.getStringExtra("token")        ?: ""
 
-        startForeground(NOTIF_ID, buildNotification(label, nexisId))
+        // Cancel the countdown notification that was shown when the alarm was set
+        if (alarmNexisId.isNotEmpty()) {
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .cancel(alarmNexisId.hashCode())
+        }
 
+        startForeground(NOTIF_ID, buildNotification(alarmLabel, alarmNexisId))
         startAlarmTone()
         startVibration()
 
-        // Auto-dismiss after 60s if user doesn't interact
+        // Auto-dismiss after 60 s if no interaction
         scope.launch {
             delay(60_000)
-            if (!dismissed) {
-                dismiss()
-                if (postAction.isNotBlank() && postDelay >= 0) {
-                    runPostAction(postDelay, postAction, baseUrl, token)
-                }
-            }
+            if (!dismissed) dismiss()
         }
 
         return START_NOT_STICKY
@@ -105,35 +109,72 @@ class AlarmService : Service() {
     private fun dismiss() {
         if (dismissed) return
         dismissed = true
+
         audioTrack?.runCatching { stop(); release() }
         audioTrack = null
         vibrator?.cancel()
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(NOTIF_ID)
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIF_ID)
+
+        // Run post action on a fresh, service-independent scope so it survives stopSelf()
+        if (postActionStr.isNotBlank()) {
+            val freshScope  = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            val url         = postBaseUrl
+            val tok         = postToken
+            val delayMs     = postDelaySecs * 1000L
+            val prompt      = postActionStr
+            val appCtx      = applicationContext
+            freshScope.launch {
+                try {
+                    delay(delayMs)
+                    val prefs       = PreferencesRepository.get(appCtx)
+                    val resolvedUrl = url.ifEmpty { prefs.baseUrl.first() }
+                    val resolvedTok = tok.ifEmpty { prefs.token.first() }
+                    if (resolvedUrl.isEmpty() || resolvedTok.isEmpty()) return@launch
+                    val api = NexisApiService(prefs, appCtx)
+                    runCatching { api.enableVoice(resolvedUrl, resolvedTok, true) }
+                    val player = AlarmAudioPlayer(api, resolvedUrl, resolvedTok, appCtx.cacheDir)
+                    api.streamChat(
+                        baseUrl      = resolvedUrl,
+                        token        = resolvedTok,
+                        msg          = prompt,
+                        onToken      = {},
+                        onClear      = {},
+                        onAudioReady = { id -> player.enqueue(id) },
+                        onDone       = {},
+                        onError      = {},
+                    )
+                } catch (_: Exception) {}
+                freshScope.cancel()
+            }
+        }
+
         stopSelf()
     }
 
-    private fun snooze(nexisId: String) {
-        // Snooze 9 minutes
+    private fun snoozeAlarm(nexisId: String) {
+        // Snooze 9 min — does NOT run the post action
         if (nexisId.isNotEmpty()) {
             AlarmScheduler.schedule(
                 context    = this,
                 nexisId    = "${nexisId}_snooze",
                 timeStr    = "9m",
                 label      = "NeXiS Alarm (snoozed)",
-                baseUrl    = "",
-                token      = "",
+                baseUrl    = postBaseUrl,
+                token      = postToken,
+                postDelay  = postDelaySecs,
+                postAction = postActionStr,
             )
         }
+        // Dismiss without triggering post action (it will trigger after the snoozed alarm)
+        postActionStr = ""
         dismiss()
     }
 
     private fun startAlarmTone() {
-        val tone        = AlarmToneGenerator.sequence
-        val sampleRate  = AlarmToneGenerator.sampleRate
-        val bufSizePcm  = AudioTrack.getMinBufferSize(
-            sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
-        ) * 4
+        val tone       = AlarmToneGenerator.sequence
+        val sampleRate = AlarmToneGenerator.sampleRate
+        val bufSize    = AudioTrack.getMinBufferSize(
+            sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT) * 4
 
         val at = AudioTrack.Builder()
             .setAudioAttributes(
@@ -149,19 +190,17 @@ class AlarmService : Service() {
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
             )
-            .setBufferSizeInBytes(bufSizePcm)
+            .setBufferSizeInBytes(bufSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
 
         audioTrack = at
         at.play()
 
-        scope.launch(Dispatchers.IO) {
-            // Ramp up volume over first 3 loops
+        scope.launch {
             for (loop in 0 until 100) {
                 if (dismissed) break
-                val volume = (loop / 3f).coerceAtMost(1f)
-                at.setVolume(volume)
+                at.setVolume((loop / 3f).coerceAtMost(1f))
                 at.write(tone, 0, tone.size)
             }
         }
@@ -178,53 +217,17 @@ class AlarmService : Service() {
         vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
     }
 
-    private fun runPostAction(postDelaySecs: Int, prompt: String, baseUrl: String, token: String) {
-        if (baseUrl.isEmpty() || token.isEmpty()) return
-        scope.launch {
-            delay(postDelaySecs * 1000L)
-
-            // Resolve credentials from prefs if not passed (fallback)
-            val prefs = PreferencesRepository.get(this@AlarmService)
-            val url   = baseUrl.ifEmpty  { runBlocking { prefs.baseUrl.first() } }
-            val tok   = token.ifEmpty    { runBlocking { prefs.token.first()   } }
-            if (url.isEmpty() || tok.isEmpty()) return@launch
-
-            val api = NexisApiService(prefs, this@AlarmService)
-
-            // Enable voice so we get audio chunks back
-            runCatching { api.enableVoice(url, tok, true) }
-
-            val audioPlayer = AlarmAudioPlayer(api, url, tok, cacheDir)
-            api.streamChat(
-                baseUrl      = url,
-                token        = tok,
-                msg          = prompt,
-                onToken      = { /* text is secondary for this use case */ },
-                onClear      = {},
-                onAudioReady = { chunkId -> audioPlayer.enqueue(chunkId) },
-                onDone       = {},
-                onError      = {},
-            )
-        }
-    }
-
     private fun buildNotification(label: String, nexisId: String): Notification {
-        val dismissPi = PendingIntent.getService(
-            this, 0,
+        val dismissPi = PendingIntent.getService(this, 0,
             Intent(this, AlarmService::class.java).setAction(ACTION_DISMISS),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val snoozePi = PendingIntent.getService(
-            this, 1,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val snoozePi = PendingIntent.getService(this, 1,
             Intent(this, AlarmService::class.java).setAction(ACTION_SNOOZE)
                 .putExtra("nexis_id", nexisId),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val openPi = PendingIntent.getActivity(
-            this, 2,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val openPi = PendingIntent.getActivity(this, 2,
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -249,8 +252,8 @@ class AlarmService : Service() {
             NotificationManager.IMPORTANCE_HIGH).apply {
             description      = "NeXiS alarm notifications"
             setShowBadge(true)
-            enableVibration(false)   // we handle vibration manually
-            setSound(null, null)     // we handle audio manually
+            enableVibration(false)
+            setSound(null, null)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         nm.createNotificationChannel(ch)
@@ -265,7 +268,8 @@ class AlarmService : Service() {
     }
 }
 
-/** Minimal audio player for post-alarm TTS chunks. */
+// ── Post-alarm TTS audio player ────────────────────────────────────────────────
+
 private class AlarmAudioPlayer(
     private val api:      NexisApiService,
     private val baseUrl:  String,

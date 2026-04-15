@@ -436,6 +436,13 @@ class NexisApiService(
         } catch (e: Exception) { emptyList() }
     }
 
+    fun deleteDevice(baseUrl: String, token: String, deviceId: String) {
+        val body = JSONObject().put("device_id", deviceId).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/device/delete").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
     fun registerDevice(baseUrl: String, token: String, info: JSONObject): Boolean {
         val body = info.toString().toRequestBody("application/json".toMediaType())
         val req  = Request.Builder().url("$baseUrl/api/device/register").post(body).withBearer(token).build()

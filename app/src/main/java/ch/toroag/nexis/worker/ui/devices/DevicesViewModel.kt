@@ -72,6 +72,13 @@ class DevicesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearProbe() { _probeOutput.value = null }
 
+    fun deleteDevice(deviceId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _devices.value = _devices.value.filterNot { it.deviceId == deviceId }
+            api.deleteDevice(baseUrl, token, deviceId)
+        }
+    }
+
     /** Save the unlock password for a specific device to local DataStore. */
     fun saveDevicePassword(deviceId: String, password: String) {
         viewModelScope.launch(Dispatchers.IO) {

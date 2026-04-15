@@ -75,6 +75,7 @@ fun DevicesScreen(
                         onSetRole     = { role -> vm.setRole(dev.deviceId, role) },
                         onProbe       = { vm.probeDevice(dev) },
                         onSavePassword = { pw -> vm.saveDevicePassword(dev.deviceId, pw) },
+                        onDelete      = { vm.deleteDevice(dev.deviceId) },
                     )
                 }
                 if (devices.isEmpty()) {
@@ -142,7 +143,27 @@ private fun DeviceCard(
     onSetRole:      (String) -> Unit,
     onProbe:        () -> Unit,
     onSavePassword: (String) -> Unit,
+    onDelete:       () -> Unit,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest  = { confirmDelete = false },
+            containerColor    = MaterialTheme.colorScheme.surface,
+            titleContentColor = NxFg,
+            textContentColor  = NxFg2,
+            title   = { Text("remove device", style = MaterialTheme.typography.titleSmall) },
+            text    = { Text("Remove ${dev.hostname} from the device inventory?") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                    Text("remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("cancel", color = NxFg2) }
+            },
+        )
+    }
     val dotColor = if (dev.online) NxGreen else NxFg2
     var passwordInput by remember(savedPassword) { mutableStateOf(savedPassword) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -159,12 +180,17 @@ private fun DeviceCard(
                 Text(if (dev.online) "●" else "○", color = dotColor,
                      style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.width(8.dp))
-                Text(dev.hostname, style = MaterialTheme.typography.titleSmall, color = NxFg)
-                Spacer(Modifier.weight(1f))
+                Text(dev.hostname, style = MaterialTheme.typography.titleSmall, color = NxFg,
+                     modifier = Modifier.weight(1f))
                 Icon(
                     if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid else Icons.Default.Computer,
                     null, Modifier.size(16.dp), tint = NxFg2,
                 )
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Delete, "Remove device", Modifier.size(16.dp),
+                         tint = NxFg2.copy(alpha = 0.6f))
+                }
             }
 
             Text("${dev.os} · ${dev.arch}", style = MaterialTheme.typography.labelSmall, color = NxFg2)
