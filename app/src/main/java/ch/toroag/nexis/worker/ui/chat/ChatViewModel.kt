@@ -54,7 +54,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val _currentModel  = MutableStateFlow("")
     val currentModel: StateFlow<String> = _currentModel
 
-    private val _voiceEnabled   = MutableStateFlow(false)
+    private val _voiceEnabled   = MutableStateFlow(true)
     val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
 
     private val _externalTyping   = MutableStateFlow(false)
@@ -81,6 +81,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     initHistory()
                     registerThisDevice()
                     startCommandPolling()   // (re)start whenever credentials load
+                    viewModelScope.launch(Dispatchers.IO) {
+                        runCatching { api.enableVoice(u, t, true) }
+                    }
                 }
             }
         }

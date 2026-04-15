@@ -87,6 +87,15 @@ fun main() = application {
         // 'window' is the underlying ComposeWindow (AWT), accessible here in FrameWindowScope.
         // Capture it so we can move the window from within the drag modifier below.
         val awtWindow = window
+        LaunchedEffect(Unit) {
+            runCatching {
+                val img = javax.imageio.ImageIO.read(
+                    Thread.currentThread().contextClassLoader
+                        .getResourceAsStream("icon.png")
+                )
+                if (img != null) awtWindow.iconImage = img
+            }
+        }
 
         NexisTheme {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

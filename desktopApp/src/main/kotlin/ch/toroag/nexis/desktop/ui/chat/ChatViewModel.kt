@@ -55,7 +55,7 @@ class ChatViewModel : AutoCloseable {
     private val _connectionStatus = MutableStateFlow(ConnectionStatus.Connecting)
     val connectionStatus: StateFlow<ConnectionStatus> = _connectionStatus
 
-    private val _voiceEnabled = MutableStateFlow(false)
+    private val _voiceEnabled = MutableStateFlow(true)
     val voiceEnabled: StateFlow<Boolean> = _voiceEnabled
 
     private val _monitorAlert = MutableStateFlow<String?>(null)
@@ -77,6 +77,7 @@ class ChatViewModel : AutoCloseable {
                     initHistory()
                     registerThisDevice()
                     startCommandPolling()
+                    scope.launch { runCatching { api.enableVoice(u, t, true) } }
                 }
             }
         }
