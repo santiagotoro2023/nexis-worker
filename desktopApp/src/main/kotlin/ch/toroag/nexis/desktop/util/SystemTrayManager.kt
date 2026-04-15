@@ -105,7 +105,7 @@ object SystemTrayManager {
 
         // Pupil highlight
         g.color  = Color(0xFF9533)
-        val pr   = sx(1.1f); val px = sx(54.0) - pr; val py = sy(60.0) - pr
+        val pr   = sx(1.1); val px = sx(54.0) - pr; val py = sy(60.0) - pr
         g.fill(Ellipse2D.Float(px, py, pr * 2, pr * 2))
 
         g.dispose()

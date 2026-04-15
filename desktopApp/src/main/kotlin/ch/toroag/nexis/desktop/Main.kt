@@ -10,11 +10,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowDraggableArea
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import java.awt.Point
 import ch.toroag.nexis.desktop.data.PreferencesRepository
 import ch.toroag.nexis.desktop.ui.chat.ChatScreen
 import ch.toroag.nexis.desktop.ui.chat.ChatViewModel
@@ -82,51 +84,76 @@ fun main() = application {
         visible     = isVisible,
         undecorated = true,
     ) {
+        // 'window' is the underlying ComposeWindow (AWT), accessible here in FrameWindowScope.
+        // Capture it so we can move the window from within the drag modifier below.
+        val awtWindow = window
+
         NexisTheme {
             Column(Modifier.fillMaxSize()) {
                 // ── Custom title bar ───────────────────────────────────────────
-                WindowDraggableArea {
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().height(36.dp)
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "NeXiS Worker",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = NxFg2,
-                                modifier = Modifier.weight(1f),
-                            )
-                            // Minimise
-                            Box(
-                                Modifier.size(28.dp)
-                                    .clickable { windowState.isMinimized = true },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("─", color = NxFg2, style = MaterialTheme.typography.labelSmall)
-                            }
-                            // Close / hide to tray
-                            Box(
-                                Modifier.size(28.dp)
-                                    .clickable {
-                                        if (SystemTrayManager.isSupported) {
-                                            isVisible = false
-                                        } else {
-                                            SystemTrayManager.remove()
-                                            exitApplication()
+                // Drag-to-move implemented via AWT mouse coordinates rather than
+                // WindowDraggableArea (not available in this Compose version).
+                var dragOrigin by remember { mutableStateOf<Point?>(null) }
+
+                Column(
+                    Modifier.fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    when (event.type) {
+                                        PointerEventType.Press -> {
+                                            dragOrigin = java.awt.MouseInfo.getPointerInfo().location
                                         }
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("✕", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                                        PointerEventType.Move -> {
+                                            val origin = dragOrigin
+                                            if (origin != null && event.changes.any { it.pressed }) {
+                                                val cur = java.awt.MouseInfo.getPointerInfo().location
+                                                awtWindow.setLocation(
+                                                    awtWindow.x + (cur.x - origin.x),
+                                                    awtWindow.y + (cur.y - origin.y),
+                                                )
+                                                dragOrigin = cur
+                                            }
+                                        }
+                                        PointerEventType.Release -> dragOrigin = null
+                                        else -> {}
+                                    }
+                                }
                             }
                         }
-                        HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().height(36.dp)
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "NeXiS Worker",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = NxFg2,
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Minimise
+                        Box(
+                            Modifier.size(28.dp).clickable { windowState.isMinimized = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("─", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                        }
+                        // Close / hide to tray
+                        Box(
+                            Modifier.size(28.dp).clickable {
+                                if (SystemTrayManager.isSupported) isVisible = false
+                                else { SystemTrayManager.remove(); exitApplication() }
+                            },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("✕", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
+                    HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
                 }
                 App()
             }
