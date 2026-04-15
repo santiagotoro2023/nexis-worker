@@ -11,7 +11,12 @@ import android.net.Uri
 import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import ch.toroag.nexis.worker.alarm.AlarmScheduler
+import ch.toroag.nexis.worker.alarm.AlarmService
 import ch.toroag.nexis.worker.data.NexisApiService
+import ch.toroag.nexis.worker.data.PreferencesRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 object CommandExecutor {
     private const val CHANNEL_ID = "nexis_commands"
@@ -93,16 +98,50 @@ object CommandExecutor {
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }
-                "open_app" -> launchApp(context, cmd.arg)
-                "notify"   -> showNotification(context, cmd.arg)
-                "clip"     -> {
+                "open_app"     -> launchApp(context, cmd.arg)
+                "notify"       -> showNotification(context, cmd.arg)
+                "clip"         -> {
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     cm.setPrimaryClip(ClipData.newPlainText("NeXiS", cmd.arg))
                 }
-                "media"    -> dispatchMediaKey(context, cmd.arg)
-                "volume"   -> setVolume(context, cmd.arg)
+                "media"        -> dispatchMediaKey(context, cmd.arg)
+                "volume"       -> setVolume(context, cmd.arg)
+                "set_alarm"    -> scheduleAlarm(context, cmd.arg, isTimer = false)
+                "set_timer"    -> scheduleAlarm(context, cmd.arg, isTimer = true)
+                "cancel_alarm" -> AlarmScheduler.cancel(context, cmd.arg.trim())
             }
         } catch (_: Exception) {}
+    }
+
+    /**
+     * arg format: "{nexis_id}|{time_or_duration}|{label}|{post_delay}|{post_action}"
+     * e.g. "nexis_1718000000|07:00|Morning brief|30|//brief"
+     * or   "nexis_1718000001|25m|Focus timer done||"
+     */
+    private fun scheduleAlarm(context: Context, arg: String, isTimer: Boolean) {
+        val parts      = arg.split("|").map { it.trim() }
+        val nexisId    = parts.getOrElse(0) { "nexis_alarm" }
+        val timeStr    = parts.getOrElse(1) { "" }
+        val label      = parts.getOrElse(2) { if (isTimer) "NeXiS Timer" else "NeXiS Alarm" }
+        val postDelay  = parts.getOrElse(3) { "0" }.toIntOrNull() ?: 0
+        val postAction = parts.getOrElse(4) { "" }
+
+        if (timeStr.isEmpty()) return
+
+        val prefs   = PreferencesRepository.get(context)
+        val baseUrl = runBlocking { prefs.baseUrl.first() }
+        val token   = runBlocking { prefs.token.first()   }
+
+        AlarmScheduler.schedule(
+            context    = context,
+            nexisId    = nexisId,
+            timeStr    = timeStr,
+            label      = label,
+            postDelay  = postDelay,
+            postAction = postAction,
+            baseUrl    = baseUrl,
+            token      = token,
+        )
     }
 
     private fun launchApp(context: Context, arg: String) {
