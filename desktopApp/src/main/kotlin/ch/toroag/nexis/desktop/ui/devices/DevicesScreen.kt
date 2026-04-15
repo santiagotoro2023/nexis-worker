@@ -53,6 +53,7 @@ fun DevicesScreen(vm: DevicesViewModel) {
                         onSetRole      = { role -> vm.setRole(dev.deviceId, role) },
                         onProbe        = { vm.probeDevice(dev) },
                         onSavePassword = { pw -> vm.saveDevicePassword(dev.deviceId, pw) },
+                        onDelete       = { vm.deleteDevice(dev.deviceId) },
                     )
                 }
                 if (devices.isEmpty()) {
@@ -112,10 +113,12 @@ private fun DeviceCard(
     onSetRole:      (String) -> Unit,
     onProbe:        () -> Unit,
     onSavePassword: (String) -> Unit,
+    onDelete:       () -> Unit,
 ) {
     val dotColor = if (dev.online) NxGreen else NxFg2
-    var passwordInput   by remember(savedPassword) { mutableStateOf(savedPassword) }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var passwordInput    by remember(savedPassword) { mutableStateOf(savedPassword) }
+    var passwordVisible  by remember { mutableStateOf(false) }
+    var confirmDelete    by remember { mutableStateOf(false) }
 
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -242,7 +245,37 @@ private fun DeviceCard(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
                     border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
                 ) { Text("probe", style = MaterialTheme.typography.labelSmall) }
+
+                Spacer(Modifier.weight(1f))
+
+                IconButton(
+                    onClick  = { confirmDelete = true },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(Icons.Default.Delete, "Remove device",
+                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                         modifier = Modifier.size(16.dp))
+                }
             }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest  = { confirmDelete = false },
+            containerColor    = MaterialTheme.colorScheme.surface,
+            titleContentColor = NxFg,
+            textContentColor  = NxFg2,
+            title   = { Text("remove device", style = MaterialTheme.typography.titleSmall) },
+            text    = { Text("Remove \"${dev.hostname}\" from the device list? It will re-appear if the app reconnects.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                    Text("remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("cancel", color = NxFg2) }
+            },
+        )
     }
 }

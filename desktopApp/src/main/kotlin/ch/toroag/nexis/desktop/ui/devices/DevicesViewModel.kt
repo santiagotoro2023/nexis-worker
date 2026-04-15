@@ -68,6 +68,13 @@ class DevicesViewModel : AutoCloseable {
         }
     }
 
+    fun deleteDevice(deviceId: String) {
+        scope.launch {
+            runCatching { api.deleteDevice(baseUrl, token, deviceId) }
+            _devices.value = _devices.value.filter { it.deviceId != deviceId }
+        }
+    }
+
     fun probeDevice(dev: NexisApiService.DeviceInfo) {
         scope.launch {
             _probeLoading.value = true

@@ -1,13 +1,15 @@
 package ch.toroag.nexis.desktop.util
 
 import java.awt.AWTException
+import java.awt.BasicStroke
+import java.awt.Color
 import java.awt.MenuItem
 import java.awt.PopupMenu
+import java.awt.RenderingHints
 import java.awt.SystemTray
 import java.awt.TrayIcon
+import java.awt.geom.Ellipse2D
 import java.awt.image.BufferedImage
-import java.awt.Color
-import java.awt.RenderingHints
 
 object SystemTrayManager {
 
@@ -58,19 +60,54 @@ object SystemTrayManager {
         trayIcon?.displayMessage(title, message, type)
     }
 
-    /** 16×16 orange circle icon drawn in-process — no PNG required. */
+    /** Triangle-with-eye icon matching the Android launcher icon. */
     private fun buildTrayImage(): BufferedImage {
-        val size = 64
-        val img  = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
-        val g    = img.createGraphics()
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        g.color = Color(0xFF6C2A, false)   // NxOrange-ish
-        g.fillOval(4, 4, size - 8, size - 8)
-        g.color = Color(0xFFFFFF, false)
-        g.font  = g.font.deriveFont(32f)
-        val fm  = g.fontMetrics
-        val txt = "N"
-        g.drawString(txt, (size - fm.stringWidth(txt)) / 2, (size + fm.ascent - fm.descent) / 2)
+        val size  = 64
+        val img   = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+        val g     = img.createGraphics()
+        val orange = Color(0xE8720C)
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,  RenderingHints.VALUE_ANTIALIAS_ON)
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE)
+
+        // Dark background
+        g.color = Color(0x0D0D0A)
+        g.fillRect(0, 0, size, size)
+
+        // Scale from 108-unit viewport to `size` px
+        val s = size / 108.0
+        fun sx(x: Double) = (x * s).toFloat()
+        fun sy(y: Double) = (y * s).toFloat()
+
+        // Outer triangle
+        val tri = java.awt.Polygon(
+            intArrayOf(sx(54.0).toInt(), sx(72.0).toInt(), sx(36.0).toInt()),
+            intArrayOf(sy(37.0).toInt(), sy(71.0).toInt(), sy(71.0).toInt()),
+            3
+        )
+        g.color  = orange
+        g.stroke = BasicStroke(sx(2.5).coerceAtLeast(1f))
+        g.drawPolygon(tri)
+
+        // Center hairline
+        g.color  = Color(orange.red, orange.green, orange.blue, (0.35 * 255).toInt())
+        g.stroke = BasicStroke(sx(0.8).coerceAtLeast(0.5f))
+        g.drawLine(sx(54.0).toInt(), sy(37.0).toInt(), sx(54.0).toInt(), sy(71.0).toInt())
+
+        // Eye ring
+        g.color  = orange
+        g.stroke = BasicStroke(sx(1.8).coerceAtLeast(1f))
+        val er   = sx(6.0); val ex = sx(54.0) - er; val ey = sy(60.0) - er
+        g.draw(Ellipse2D.Float(ex, ey, er * 2, er * 2))
+
+        // Iris
+        val ir = sx(3.0); val ix = sx(54.0) - ir; val iy = sy(60.0) - ir
+        g.fill(Ellipse2D.Float(ix, iy, ir * 2, ir * 2))
+
+        // Pupil highlight
+        g.color  = Color(0xFF9533)
+        val pr   = sx(1.1f); val px = sx(54.0) - pr; val py = sy(60.0) - pr
+        g.fill(Ellipse2D.Float(px, py, pr * 2, pr * 2))
+
         g.dispose()
         return img
     }

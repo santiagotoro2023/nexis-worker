@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowDraggableArea
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import ch.toroag.nexis.desktop.data.PreferencesRepository
@@ -68,7 +69,6 @@ fun main() = application {
 
     Window(
         onCloseRequest = {
-            // Hide to tray instead of exiting (only if tray is supported)
             if (SystemTrayManager.isSupported) {
                 isVisible = false
                 SystemTrayManager.notify("NeXiS", "Running in background — click the tray icon to reopen")
@@ -77,12 +77,59 @@ fun main() = application {
                 exitApplication()
             }
         },
-        title      = "NeXiS Worker",
-        state      = windowState,
-        visible    = isVisible,
+        title       = "NeXiS Worker",
+        state       = windowState,
+        visible     = isVisible,
+        undecorated = true,
     ) {
         NexisTheme {
-            App()
+            Column(Modifier.fillMaxSize()) {
+                // ── Custom title bar ───────────────────────────────────────────
+                WindowDraggableArea {
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().height(36.dp)
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "NeXiS Worker",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = NxFg2,
+                                modifier = Modifier.weight(1f),
+                            )
+                            // Minimise
+                            Box(
+                                Modifier.size(28.dp)
+                                    .clickable { windowState.isMinimized = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("─", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                            }
+                            // Close / hide to tray
+                            Box(
+                                Modifier.size(28.dp)
+                                    .clickable {
+                                        if (SystemTrayManager.isSupported) {
+                                            isVisible = false
+                                        } else {
+                                            SystemTrayManager.remove()
+                                            exitApplication()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("✕", color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
+                    }
+                }
+                App()
+            }
         }
     }
 }

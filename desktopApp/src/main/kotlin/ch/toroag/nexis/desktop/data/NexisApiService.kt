@@ -333,6 +333,13 @@ class NexisApiService(
         runCatching { standardClient.newCall(req).execute().close() }
     }
 
+    fun deleteDevice(baseUrl: String, token: String, deviceId: String) {
+        val body = JSONObject().put("device_id", deviceId).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/device/delete").post(body).withBearer(token).build()
+        runCatching { standardClient.newCall(req).execute().close() }
+    }
+
     fun pollCommands(baseUrl: String, token: String, deviceId: String): List<PendingCommand> {
         val req = Request.Builder()
             .url("$baseUrl/api/commands/pending?device_id=$deviceId")
