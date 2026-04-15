@@ -1,0 +1,209 @@
+package ch.toroag.nexis.desktop.ui.remote
+
+import ch.toroag.nexis.desktop.data.NexisApiService
+import ch.toroag.nexis.desktop.data.PreferencesRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+
+class RemoteViewModel : AutoCloseable {
+
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val prefs = PreferencesRepository.get()
+    private val api   = NexisApiService(prefs)
+
+    private val _result         = MutableStateFlow("")
+    val result: StateFlow<String> = _result
+
+    private val _isLoading      = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _devices        = MutableStateFlow<List<NexisApiService.DeviceInfo>>(emptyList())
+    val devices: StateFlow<List<NexisApiService.DeviceInfo>> = _devices
+
+    private val _selectedDevice = MutableStateFlow<NexisApiService.DeviceInfo?>(null)
+    val selectedDevice: StateFlow<NexisApiService.DeviceInfo?> = _selectedDevice
+
+    private val _devicesLoading = MutableStateFlow(false)
+    val devicesLoading: StateFlow<Boolean> = _devicesLoading
+
+    private var baseUrl = ""
+    private var token   = ""
+
+    init {
+        scope.launch {
+            combine(prefs.baseUrl, prefs.token) { u, t -> Pair(u, t) }.collect { (u, t) ->
+                baseUrl = u; token = t
+                if (u.isNotEmpty() && t.isNotEmpty()) loadDevices()
+            }
+        }
+    }
+
+    fun loadDevices() {
+        scope.launch {
+            _devicesLoading.value = true
+            val cached = parseCachedDevices(prefs.getCachedDevices())
+            if (cached.isNotEmpty() && _devices.value.isEmpty()) {
+                _devices.value = cached
+                if (_selectedDevice.value == null) {
+                    _selectedDevice.value = cached.firstOrNull { it.role == "primary_pc" }
+                        ?: cached.firstOrNull()
+                }
+            }
+            val live = runCatching { api.getDevices(baseUrl, token) }.getOrNull()
+            val all = if (!live.isNullOrEmpty()) {
+                prefs.saveCachedDevices(live.toJson())
+                live
+            } else cached
+            _devices.value = all
+            val cur = _selectedDevice.value
+            if (cur == null || cur !in all) {
+                _selectedDevice.value = all.firstOrNull { it.role == "primary_pc" } ?: all.firstOrNull()
+            }
+            _devicesLoading.value = false
+        }
+    }
+
+    fun selectDevice(device: NexisApiService.DeviceInfo?) {
+        _selectedDevice.value = device
+        _result.value = ""
+    }
+
+    fun action(action: String, arg: String = "") {
+        if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
+        val dev = _selectedDevice.value ?: return
+        scope.launch {
+            val resolvedArg = if (action == "unlock" && arg.isEmpty())
+                prefs.getDevicePassword(dev.deviceId)
+            else arg
+            _isLoading.value = true
+            _result.value    = ""
+            _result.value    = runCatching {
+                api.desktopAction(baseUrl, token, action, resolvedArg, dev.deviceId)
+            }.getOrElse { it.message ?: "error" }
+            _isLoading.value = false
+        }
+    }
+
+    fun mobileCommand(action: String, arg: String = "") {
+        if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
+        val dev = _selectedDevice.value ?: return
+        scope.launch {
+            _isLoading.value = true
+            _result.value    = ""
+            _result.value    = runCatching {
+                api.sendDeviceCommand(baseUrl, token, dev.deviceId, action, arg)
+            }.getOrElse { it.message ?: "error" }
+            _isLoading.value = false
+        }
+    }
+
+    fun wakeOnLan() {
+        val mac = _selectedDevice.value?.mac?.ifEmpty { null } ?: run {
+            _result.value = "(no MAC address stored for this device)"
+            return
+        }
+        scope.launch {
+            _isLoading.value = true
+            _result.value    = sendWolDirectly(mac)
+            _isLoading.value = false
+        }
+    }
+
+    private fun sendWolDirectly(mac: String): String {
+        val clean = mac.replace(":", "").replace("-", "").replace(".", "")
+        if (clean.length != 12) return "(invalid MAC: $mac)"
+        return try {
+            val macBytes = clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            val packet = ByteArray(102)
+            repeat(6)  { i -> packet[i] = 0xFF.toByte() }
+            repeat(16) { i -> System.arraycopy(macBytes, 0, packet, 6 + i * 6, 6) }
+            val host = baseUrl.removePrefix("https://").removePrefix("http://")
+                .substringBefore(":").substringBefore("/").ifEmpty { null }
+            DatagramSocket().use { socket ->
+                socket.broadcast = true
+                socket.send(DatagramPacket(packet, 102, InetAddress.getByName("255.255.255.255"), 9))
+                if (host != null) {
+                    runCatching {
+                        socket.send(DatagramPacket(packet, 102, InetAddress.getByName(host), 9))
+                    }
+                }
+            }
+            "WOL sent to $mac — PC should wake up in a few seconds"
+        } catch (e: Exception) {
+            "(WOL failed: ${e.message})"
+        }
+    }
+
+    fun probeSelectedDevice() {
+        if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
+        val dev = _selectedDevice.value ?: return
+        scope.launch {
+            _isLoading.value = true
+            _result.value    = ""
+            _result.value    = runCatching {
+                if (dev.deviceType == "desktop" && dev.online)
+                    api.probeController(baseUrl, token)
+                else
+                    api.probeDevice(baseUrl, token, dev.deviceId)
+            }.getOrElse { it.message ?: "error" }
+            _isLoading.value = false
+        }
+    }
+
+    private fun List<NexisApiService.DeviceInfo>.toJson(): String {
+        val arr = JSONArray()
+        forEach { d ->
+            arr.put(JSONObject().apply {
+                put("device_id",   d.deviceId)
+                put("hostname",    d.hostname)
+                put("model",       d.model)
+                put("os",          d.os)
+                put("arch",        d.arch)
+                put("device_type", d.deviceType)
+                put("ip",          d.ip)
+                put("mac",         d.mac)
+                put("role",        d.role ?: "")
+                put("online",      d.online)
+                put("last_seen",   d.lastSeen)
+                if (d.batteryPct != null) put("battery_pct", d.batteryPct)
+                if (d.charging   != null) put("charging",    d.charging)
+            })
+        }
+        return arr.toString()
+    }
+
+    private fun parseCachedDevices(json: String): List<NexisApiService.DeviceInfo> = try {
+        val arr = JSONArray(json)
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            NexisApiService.DeviceInfo(
+                deviceId     = o.getString("device_id"),
+                hostname     = o.optString("hostname", ""),
+                model        = o.optString("model", ""),
+                os           = o.optString("os", ""),
+                arch         = o.optString("arch", ""),
+                deviceType   = o.optString("device_type", "desktop"),
+                capabilities = emptyList(),
+                ip           = o.optString("ip", ""),
+                mac          = o.optString("mac", ""),
+                role         = o.optString("role").takeIf { it.isNotEmpty() && it != "null" },
+                online       = false,
+                batteryPct   = if (o.isNull("battery_pct")) null else o.optInt("battery_pct"),
+                charging     = if (o.isNull("charging"))    null else o.optBoolean("charging"),
+                lastSeen     = o.optString("last_seen", ""),
+            )
+        }
+    } catch (_: Exception) { emptyList() }
+
+    override fun close() {}
+}
