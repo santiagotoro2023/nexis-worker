@@ -57,8 +57,6 @@ fun SettingsScreen(
     var haPasswordVisible by remember { mutableStateOf(false) }
     var haMainInput      by remember(haConfig) { mutableStateOf(haConfig?.mainSwitch     ?: "switch.homelab_main_switch") }
     var haCompInput     by remember(haConfig) { mutableStateOf(haConfig?.computerSwitch ?: "switch.homelab_computer_switch") }
-    var haStartDelay    by remember(haConfig) { mutableStateOf((haConfig?.startDelay ?: 30).toString()) }
-    var haStopDelay     by remember(haConfig) { mutableStateOf((haConfig?.stopDelay  ?: 10).toString()) }
 
     LaunchedEffect(status) {
         if (status != null) {
@@ -284,19 +282,6 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     shape = RoundedCornerShape(4.dp), colors = fieldColors,
                     textStyle = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(haStartDelay, { haStartDelay = it },
-                        label = { Text("start delay (s)", color = NxFg2) },
-                        modifier = Modifier.weight(1f), singleLine = true,
-                        shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                        textStyle = MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(haStopDelay, { haStopDelay = it },
-                        label = { Text("stop delay (s)", color = NxFg2) },
-                        modifier = Modifier.weight(1f), singleLine = true,
-                        shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                        textStyle = MaterialTheme.typography.bodyMedium)
-                }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
@@ -312,8 +297,7 @@ fun SettingsScreen(
                     }
                     Button(
                         onClick = {
-                            vm.saveHaConfig(haUrlInput, haUsernameInput, haPasswordInput, haMainInput, haCompInput,
-                                haStartDelay.toIntOrNull() ?: 30, haStopDelay.toIntOrNull() ?: 10)
+                            vm.saveHaConfig(haUrlInput, haUsernameInput, haPasswordInput, haMainInput, haCompInput)
                         },
                         modifier = Modifier.weight(1f).height(40.dp),
                         shape    = RoundedCornerShape(4.dp),

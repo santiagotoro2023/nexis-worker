@@ -558,8 +558,6 @@ class NexisApiService(
         val password:       String,
         val mainSwitch:     String,
         val computerSwitch: String,
-        val startDelay:     Int,
-        val stopDelay:      Int,
     )
 
     data class HaStatus(
@@ -582,8 +580,6 @@ class NexisApiService(
                 password       = o.optString("password",        ""),
                 mainSwitch     = o.optString("main_switch",     "switch.homelab_main_switch"),
                 computerSwitch = o.optString("computer_switch", "switch.homelab_computer_switch"),
-                startDelay     = o.optInt("start_delay", 30),
-                stopDelay      = o.optInt("stop_delay",  10),
             )
         }
     } catch (e: Exception) { null }
@@ -595,8 +591,6 @@ class NexisApiService(
             .put("password",        config.password)
             .put("main_switch",     config.mainSwitch)
             .put("computer_switch", config.computerSwitch)
-            .put("start_delay",     config.startDelay)
-            .put("stop_delay",      config.stopDelay)
         val body = obj.toString().toRequestBody("application/json".toMediaType())
         val req  = Request.Builder().url("$baseUrl/api/ha/config").post(body).withBearer(token).build()
         standardClient.newCall(req).execute().use { it.isSuccessful }
