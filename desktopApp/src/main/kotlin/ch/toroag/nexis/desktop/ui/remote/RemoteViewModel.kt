@@ -19,6 +19,25 @@ import java.net.InetAddress
 
 class RemoteViewModel : AutoCloseable {
 
+    companion object {
+        val HOMELAB_DEVICE = NexisApiService.DeviceInfo(
+            deviceId     = "__homelab__",
+            hostname     = "HomeLab",
+            model        = "",
+            os           = "",
+            arch         = "",
+            deviceType   = "homelab",
+            capabilities = emptyList(),
+            ip           = "",
+            mac          = "",
+            role         = null,
+            online       = true,
+            batteryPct   = null,
+            charging     = null,
+            lastSeen     = "",
+        )
+    }
+
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val prefs = PreferencesRepository.get()
     private val api   = NexisApiService(prefs)
@@ -66,17 +85,18 @@ class RemoteViewModel : AutoCloseable {
             _devicesLoading.value = true
             val cached = parseCachedDevices(prefs.getCachedDevices())
             if (cached.isNotEmpty() && _devices.value.isEmpty()) {
-                _devices.value = cached
+                val withHl = listOf(HOMELAB_DEVICE) + cached
+                _devices.value = withHl
                 if (_selectedDevice.value == null) {
-                    _selectedDevice.value = cached.firstOrNull { it.role == "primary_pc" }
-                        ?: cached.firstOrNull()
+                    _selectedDevice.value = withHl.firstOrNull { it.role == "primary_pc" }
+                        ?: withHl.firstOrNull()
                 }
             }
             val live = runCatching { api.getDevices(baseUrl, token) }.getOrNull()
             val all = if (!live.isNullOrEmpty()) {
                 prefs.saveCachedDevices(live.toJson())
-                live
-            } else cached
+                listOf(HOMELAB_DEVICE) + live
+            } else listOf(HOMELAB_DEVICE) + cached
             _devices.value = all
             val cur = _selectedDevice.value
             if (cur == null || cur !in all) {

@@ -39,9 +39,10 @@ fun RemoteScreen(vm: RemoteViewModel) {
     var volumeSlider   by remember { mutableStateOf(50f) }
     var deviceDropdown by remember { mutableStateOf(false) }
 
-    val isDesktop = selectedDevice?.deviceType == "desktop"
-    val isMobile  = selectedDevice?.deviceType == "mobile"
-    val isOffline = selectedDevice?.online == false
+    val isDesktop  = selectedDevice?.deviceType == "desktop"
+    val isMobile   = selectedDevice?.deviceType == "mobile"
+    val isHomelab  = selectedDevice?.deviceType == "homelab"
+    val isOffline  = selectedDevice?.online == false
 
     Column(
         Modifier
@@ -75,8 +76,13 @@ fun RemoteScreen(vm: RemoteViewModel) {
                                  color = if (dev.online) NxGreen else NxFg2,
                                  style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.width(6.dp))
-                            Icon(if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid else Icons.Default.Computer,
-                                 null, Modifier.size(14.dp), tint = NxFg2)
+                            Icon(
+                                when (dev.deviceType) {
+                                    "mobile"  -> Icons.Default.PhoneAndroid
+                                    "homelab" -> Icons.Default.Home
+                                    else      -> Icons.Default.Computer
+                                },
+                                null, Modifier.size(14.dp), tint = NxFg2)
                             Spacer(Modifier.width(6.dp))
                             Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
                             dev.role?.let {
@@ -102,13 +108,19 @@ fun RemoteScreen(vm: RemoteViewModel) {
                                          color = if (dev.online) NxGreen else NxFg2,
                                          style = MaterialTheme.typography.bodySmall)
                                     Spacer(Modifier.width(6.dp))
-                                    Icon(if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid else Icons.Default.Computer,
-                                         null, Modifier.size(14.dp), tint = NxFg2)
+                                    Icon(
+                                        when (dev.deviceType) {
+                                            "mobile"  -> Icons.Default.PhoneAndroid
+                                            "homelab" -> Icons.Default.Home
+                                            else      -> Icons.Default.Computer
+                                        },
+                                        null, Modifier.size(14.dp), tint = NxFg2)
                                     Spacer(Modifier.width(8.dp))
                                     Column {
                                         Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
-                                        Text("${dev.os}${dev.role?.let { " · [$it]" } ?: ""}",
-                                             style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                                        if (dev.deviceType != "homelab")
+                                            Text("${dev.os}${dev.role?.let { " · [$it]" } ?: ""}",
+                                                 style = MaterialTheme.typography.labelSmall, color = NxFg2)
                                     }
                                 }
                             },
@@ -283,7 +295,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
         }
 
         // ── HomeLab ────────────────────────────────────────────────────────────
-        HomelabSection(haStatus, haLog, haStatusBusy, vm::haAction)
+        if (isHomelab) HomelabSection(haStatus, haLog, haStatusBusy, vm::haAction)
 
         // ── Result ─────────────────────────────────────────────────────────────
         if (isLoading || result.isNotEmpty()) {
@@ -422,16 +434,31 @@ private fun HomelabSection(
             }
         }
         if (busy) {
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(12.dp), color = NxOrange, strokeWidth = 2.dp)
-                Spacer(Modifier.width(6.dp))
-                val seqLabel = when (status?.sequence) {
-                    "starting" -> "starting homelab…"
-                    "stopping" -> "stopping homelab…"
-                    else       -> "working…"
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(12.dp), color = NxOrange, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(6.dp))
+                    val seqLabel = when (status?.sequence) {
+                        "starting" -> "starting homelab…"
+                        "stopping" -> "stopping homelab…"
+                        else       -> "working…"
+                    }
+                    Text(seqLabel, style = MaterialTheme.typography.labelSmall, color = NxOrange)
                 }
-                Text(seqLabel, style = MaterialTheme.typography.labelSmall, color = NxOrange)
+                OutlinedButton(
+                    onClick  = { onAction("abort") },
+                    modifier = Modifier.height(32.dp),
+                    shape    = RoundedCornerShape(4.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                ) {
+                    Icon(Icons.Default.Stop, null, Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("abort", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }

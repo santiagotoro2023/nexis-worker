@@ -23,6 +23,25 @@ import java.net.InetAddress
 
 class RemoteViewModel(app: Application) : AndroidViewModel(app) {
 
+    companion object {
+        val HOMELAB_DEVICE = NexisApiService.DeviceInfo(
+            deviceId     = "__homelab__",
+            hostname     = "HomeLab",
+            model        = "",
+            os           = "",
+            arch         = "",
+            deviceType   = "homelab",
+            capabilities = emptyList(),
+            ip           = "",
+            mac          = "",
+            role         = null,
+            online       = true,
+            batteryPct   = null,
+            charging     = null,
+            lastSeen     = "",
+        )
+    }
+
     private val prefs = PreferencesRepository.get(app)
     private val api   = NexisApiService(prefs, app)
 
@@ -71,20 +90,21 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             // the network call completes (or when the server is unreachable).
             val cached = parseCachedDevices(prefs.getCachedDevices())
             if (cached.isNotEmpty() && _devices.value.isEmpty()) {
-                _devices.value = cached
+                val withHl = listOf(HOMELAB_DEVICE) + cached
+                _devices.value = withHl
                 val cur = _selectedDevice.value
-                if (cur == null || cur !in cached) {
-                    _selectedDevice.value = cached.firstOrNull { it.role == "primary_pc" }
-                        ?: cached.firstOrNull()
+                if (cur == null || cur !in withHl) {
+                    _selectedDevice.value = withHl.firstOrNull { it.role == "primary_pc" }
+                        ?: withHl.firstOrNull()
                 }
             }
             // Try to refresh from server
             val live = runCatching { api.getDevices(baseUrl, token) }.getOrNull()
             val all = if (!live.isNullOrEmpty()) {
                 prefs.saveCachedDevices(live.toJson())
-                live
+                listOf(HOMELAB_DEVICE) + live
             } else {
-                cached   // server unreachable — stick with cached (already shown)
+                listOf(HOMELAB_DEVICE) + cached
             }
             _devices.value = all
             val cur = _selectedDevice.value
