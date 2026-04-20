@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,9 +42,20 @@ fun SettingsScreen(
     val health        by vm.health.collectAsState()
     val healthLoading by vm.healthLoading.collectAsState()
     val ntfyTopic     by vm.ntfyTopic.collectAsState(initial = "")
+    val haConfig      by vm.haConfig.collectAsState()
+    val haTestResult  by vm.haTestResult.collectAsState()
+    val haTestLoading by vm.haTestLoading.collectAsState()
 
     var reAuthPw    by remember { mutableStateOf("") }
     var ntfyInput   by remember(ntfyTopic) { mutableStateOf(ntfyTopic) }
+
+    var haUrlInput      by remember(haConfig) { mutableStateOf(haConfig?.url ?: "") }
+    var haTokenInput    by remember(haConfig) { mutableStateOf(haConfig?.token ?: "") }
+    var haTokenVisible  by remember { mutableStateOf(false) }
+    var haMainInput     by remember(haConfig) { mutableStateOf(haConfig?.mainSwitch     ?: "switch.homelab_main_switch") }
+    var haCompInput     by remember(haConfig) { mutableStateOf(haConfig?.computerSwitch ?: "switch.homelab_computer_switch") }
+    var haStartDelay    by remember(haConfig) { mutableStateOf((haConfig?.startDelay ?: 30).toString()) }
+    var haStopDelay     by remember(haConfig) { mutableStateOf((haConfig?.stopDelay  ?: 10).toString()) }
 
     LaunchedEffect(status) {
         if (status != null) {
@@ -219,6 +231,93 @@ fun SettingsScreen(
                         contentColor   = MaterialTheme.colorScheme.background,
                     ),
                 ) { Text("save") }
+            }
+
+            // Home Assistant
+            SettingsCard(label = "home assistant") {
+                val fieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor      = NxOrangeDim, unfocusedBorderColor = NxBorder,
+                    focusedTextColor        = NxFg,        unfocusedTextColor   = NxFg,
+                    cursorColor             = NxOrange,
+                    focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+                Text("credentials for local Home Assistant instance.",
+                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(haUrlInput, { haUrlInput = it },
+                    label = { Text("HA URL (e.g. http://192.168.1.61:8123)", color = NxFg2) },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                    textStyle = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(haTokenInput, { haTokenInput = it },
+                    label = { Text("long-lived access token", color = NxFg2) },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    visualTransformation = if (haTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { haTokenVisible = !haTokenVisible }, modifier = Modifier.size(24.dp)) {
+                            Icon(if (haTokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                 null, Modifier.size(16.dp), tint = NxFg2)
+                        }
+                    })
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(haMainInput, { haMainInput = it },
+                    label = { Text("main switch entity ID", color = NxFg2) },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                    textStyle = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(haCompInput, { haCompInput = it },
+                    label = { Text("computer switch entity ID", color = NxFg2) },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                    textStyle = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(haStartDelay, { haStartDelay = it },
+                        label = { Text("start delay (s)", color = NxFg2) },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                        textStyle = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(haStopDelay, { haStopDelay = it },
+                        label = { Text("stop delay (s)", color = NxFg2) },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                        textStyle = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick  = { vm.testHaConnection() },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape    = RoundedCornerShape(4.dp),
+                        enabled  = !haTestLoading,
+                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
+                        border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
+                    ) {
+                        if (haTestLoading) CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
+                        else Text("test connection", style = MaterialTheme.typography.labelMedium)
+                    }
+                    Button(
+                        onClick = {
+                            vm.saveHaConfig(haUrlInput, haTokenInput, haMainInput, haCompInput,
+                                haStartDelay.toIntOrNull() ?: 30, haStopDelay.toIntOrNull() ?: 10)
+                        },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape    = RoundedCornerShape(4.dp),
+                        colors   = ButtonDefaults.buttonColors(containerColor = NxOrangeDim,
+                            contentColor = MaterialTheme.colorScheme.background),
+                    ) { Text("save", style = MaterialTheme.typography.labelMedium) }
+                }
+                if (haTestResult != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(haTestResult!!,
+                         style = MaterialTheme.typography.labelSmall,
+                         color = if (haTestResult!!.startsWith("✓")) NxOrange else MaterialTheme.colorScheme.error)
+                }
             }
 
             // Re-authenticate

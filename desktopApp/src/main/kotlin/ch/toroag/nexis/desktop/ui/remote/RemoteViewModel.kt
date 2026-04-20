@@ -4,7 +4,9 @@ import ch.toroag.nexis.desktop.data.NexisApiService
 import ch.toroag.nexis.desktop.data.PreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -35,6 +37,17 @@ class RemoteViewModel : AutoCloseable {
 
     private val _devicesLoading = MutableStateFlow(false)
     val devicesLoading: StateFlow<Boolean> = _devicesLoading
+
+    private val _haStatus      = MutableStateFlow<NexisApiService.HaStatus?>(null)
+    val haStatus: StateFlow<NexisApiService.HaStatus?> = _haStatus
+
+    private val _haLog         = MutableStateFlow<List<NexisApiService.HaLogEntry>>(emptyList())
+    val haLog: StateFlow<List<NexisApiService.HaLogEntry>> = _haLog
+
+    private val _haStatusBusy  = MutableStateFlow(false)
+    val haStatusBusy: StateFlow<Boolean> = _haStatusBusy
+
+    private var haPollingJob: Job? = null
 
     private var baseUrl = ""
     private var token   = ""
@@ -144,6 +157,32 @@ class RemoteViewModel : AutoCloseable {
         }
     }
 
+    fun startHaPolling() {
+        if (haPollingJob?.isActive == true) return
+        haPollingJob = scope.launch(Dispatchers.IO) {
+            while (true) {
+                if (baseUrl.isNotEmpty() && token.isNotEmpty()) {
+                    _haStatus.value = runCatching { api.getHaStatus(baseUrl, token) }.getOrNull()
+                    _haLog.value    = runCatching { api.getHaLog(baseUrl, token) }.getOrDefault(emptyList())
+                }
+                delay(2500)
+            }
+        }
+    }
+
+    fun stopHaPolling() { haPollingJob?.cancel(); haPollingJob = null }
+
+    fun haAction(action: String) {
+        if (baseUrl.isEmpty() || token.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            _haStatusBusy.value = true
+            runCatching { api.haAction(baseUrl, token, action) }
+            _haStatus.value = runCatching { api.getHaStatus(baseUrl, token) }.getOrNull()
+            _haLog.value    = runCatching { api.getHaLog(baseUrl, token) }.getOrDefault(emptyList())
+            _haStatusBusy.value = false
+        }
+    }
+
     fun probeSelectedDevice() {
         if (_isLoading.value || baseUrl.isEmpty() || token.isEmpty()) return
         val dev = _selectedDevice.value ?: return
@@ -205,5 +244,5 @@ class RemoteViewModel : AutoCloseable {
         }
     } catch (_: Exception) { emptyList() }
 
-    override fun close() {}
+    override fun close() { stopHaPolling() }
 }

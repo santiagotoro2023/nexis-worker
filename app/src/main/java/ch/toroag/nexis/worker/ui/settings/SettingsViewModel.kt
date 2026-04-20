@@ -35,12 +35,22 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     val ntfyTopic = prefs.ntfyTopic
 
+    private val _haConfig      = MutableStateFlow<NexisApiService.HaConfig?>(null)
+    val haConfig: StateFlow<NexisApiService.HaConfig?> = _haConfig
+
+    private val _haTestResult  = MutableStateFlow<String?>(null)
+    val haTestResult: StateFlow<String?> = _haTestResult
+
+    private val _haTestLoading = MutableStateFlow(false)
+    val haTestLoading: StateFlow<Boolean> = _haTestLoading
+
     init {
         viewModelScope.launch {
             _baseUrl.value = prefs.baseUrl.first()
             _certPin.value = CertPinStore.getPin(getApplication())
         }
         refreshHealth()
+        loadHaConfig()
     }
 
     fun refreshHealth() {
@@ -83,6 +93,36 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveNtfyTopic(topic: String) {
         viewModelScope.launch { prefs.saveNtfyTopic(topic) }
+    }
+
+    fun loadHaConfig() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val url = prefs.baseUrl.first(); val tok = prefs.token.first()
+            if (url.isNotEmpty() && tok.isNotEmpty())
+                _haConfig.value = api.getHaConfig(url, tok)
+        }
+    }
+
+    fun saveHaConfig(haUrl: String, haToken: String, mainSwitch: String,
+                     computerSwitch: String, startDelay: Int, stopDelay: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val url = prefs.baseUrl.first(); val tok = prefs.token.first()
+            val cfg = NexisApiService.HaConfig(haUrl, haToken, mainSwitch, computerSwitch, startDelay, stopDelay)
+            val ok  = runCatching { api.saveHaConfig(url, tok, cfg) }.getOrDefault(false)
+            if (ok) { _haConfig.value = cfg; _status.value = "Home Assistant settings saved" }
+            else _status.value = "Failed to save HA settings"
+        }
+    }
+
+    fun testHaConnection() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _haTestLoading.value = true
+            _haTestResult.value  = null
+            val url = prefs.baseUrl.first(); val tok = prefs.token.first()
+            val (ok, msg) = runCatching { api.testHaConnection(url, tok) }.getOrDefault(Pair(false, "error"))
+            _haTestResult.value  = if (ok) "✓ $msg" else "✗ $msg"
+            _haTestLoading.value = false
+        }
     }
 
     fun clearStatus() { _status.value = null }

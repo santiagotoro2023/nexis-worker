@@ -23,6 +23,14 @@ fun RemoteScreen(vm: RemoteViewModel) {
     val devices        by vm.devices.collectAsState()
     val selectedDevice by vm.selectedDevice.collectAsState()
     val devicesLoading by vm.devicesLoading.collectAsState()
+    val haStatus       by vm.haStatus.collectAsState()
+    val haLog          by vm.haLog.collectAsState()
+    val haStatusBusy   by vm.haStatusBusy.collectAsState()
+
+    DisposableEffect(Unit) {
+        vm.startHaPolling()
+        onDispose { vm.stopHaPolling() }
+    }
 
     var appInput       by remember { mutableStateOf("") }
     var clipboardInput by remember { mutableStateOf("") }
@@ -274,6 +282,9 @@ fun RemoteScreen(vm: RemoteViewModel) {
             }
         }
 
+        // ── HomeLab ────────────────────────────────────────────────────────────
+        HomelabSection(haStatus, haLog, haStatusBusy, vm::haAction)
+
         // ── Result ─────────────────────────────────────────────────────────────
         if (isLoading || result.isNotEmpty()) {
             RemoteSection("result") {
@@ -328,6 +339,120 @@ private fun RemoteButton(
         Icon(icon, null, modifier = Modifier.size(16.dp), tint = if (enabled) NxOrange else NxFg2)
         Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun HomelabSection(
+    status:   ch.toroag.nexis.desktop.data.NexisApiService.HaStatus?,
+    log:      List<ch.toroag.nexis.desktop.data.NexisApiService.HaLogEntry>,
+    busy:     Boolean,
+    onAction: (String) -> Unit,
+) {
+    RemoteSection("home lab") {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SwitchStatusChip("main",     status?.main,     Modifier.weight(1f))
+            SwitchStatusChip("computer", status?.computer, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val seq = status?.sequence
+            OutlinedButton(
+                onClick  = { onAction("start") },
+                modifier = Modifier.weight(1f).height(40.dp),
+                shape    = RoundedCornerShape(4.dp),
+                enabled  = !busy && seq == null,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange,
+                    disabledContentColor = NxFg2),
+                border   = androidx.compose.foundation.BorderStroke(1.dp,
+                    if (!busy && seq == null) NxOrangeDim else NxBorder.copy(alpha = 0.4f)),
+            ) {
+                Icon(Icons.Default.PowerSettingsNew, null, Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("start homelab", style = MaterialTheme.typography.labelMedium)
+            }
+            OutlinedButton(
+                onClick  = { onAction("stop") },
+                modifier = Modifier.weight(1f).height(40.dp),
+                shape    = RoundedCornerShape(4.dp),
+                enabled  = !busy && seq == null,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg,
+                    disabledContentColor = NxFg2),
+                border   = androidx.compose.foundation.BorderStroke(1.dp,
+                    if (!busy && seq == null) NxBorder else NxBorder.copy(alpha = 0.4f)),
+            ) {
+                Icon(Icons.Default.PowerOff, null, Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("stop homelab", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("main_on" to "main on", "main_off" to "main off",
+                   "computer_on" to "pc on", "computer_off" to "pc off").forEach { (action, label) ->
+                OutlinedButton(
+                    onClick  = { onAction(action) },
+                    modifier = Modifier.weight(1f).height(32.dp),
+                    shape    = RoundedCornerShape(4.dp),
+                    enabled  = !busy,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2,
+                        disabledContentColor = NxFg2.copy(alpha = 0.4f)),
+                    border   = androidx.compose.foundation.BorderStroke(0.5.dp, NxBorder),
+                ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+            }
+        }
+        if (log.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text("activity log", style = MaterialTheme.typography.labelSmall, color = NxOrange)
+            Spacer(Modifier.height(4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                log.takeLast(12).forEach { entry ->
+                    val t = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                        .format(java.util.Date((entry.ts * 1000).toLong()))
+                    Text("$t  ${entry.msg}",
+                         style = MaterialTheme.typography.labelSmall.copy(
+                             fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp),
+                         color = if (entry.msg.contains("error", ignoreCase = true)) MaterialTheme.colorScheme.error
+                                 else if (entry.msg.contains("✓")) NxOrange
+                                 else NxFg2)
+                }
+            }
+        }
+        if (busy) {
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(12.dp), color = NxOrange, strokeWidth = 2.dp)
+                Spacer(Modifier.width(6.dp))
+                val seqLabel = when (status?.sequence) {
+                    "starting" -> "starting homelab…"
+                    "stopping" -> "stopping homelab…"
+                    else       -> "working…"
+                }
+                Text(seqLabel, style = MaterialTheme.typography.labelSmall, color = NxOrange)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwitchStatusChip(name: String, state: String?, modifier: Modifier = Modifier) {
+    val (dot, color) = when (state) {
+        "on"           -> "●" to NxGreen
+        "off"          -> "○" to NxFg2
+        "unconfigured" -> "—" to NxFg2
+        else           -> "?" to NxFg2
+    }
+    Row(modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(dot, color = color, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.width(6.dp))
+        Text(name, style = MaterialTheme.typography.labelSmall, color = NxFg)
+        if (state != null && state != "unconfigured") {
+            Spacer(Modifier.width(4.dp))
+            Text(state, style = MaterialTheme.typography.labelSmall, color = color)
+        }
     }
 }
 

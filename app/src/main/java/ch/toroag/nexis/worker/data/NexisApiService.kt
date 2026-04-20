@@ -603,4 +603,97 @@ class NexisApiService(
             }
         } catch (e: Exception) { null }
     }
+
+    // ── Home Assistant / HomeLab ───────────────────────────────────────────────
+
+    data class HaConfig(
+        val url:            String,
+        val token:          String,
+        val mainSwitch:     String,
+        val computerSwitch: String,
+        val startDelay:     Int,
+        val stopDelay:      Int,
+    )
+
+    data class HaStatus(
+        val main:     String,   // "on", "off", "unknown", "unconfigured"
+        val computer: String,
+        val busy:     Boolean,
+        val sequence: String?,  // "starting", "stopping", null
+    )
+
+    data class HaLogEntry(val ts: Double, val msg: String)
+
+    fun getHaConfig(baseUrl: String, token: String): HaConfig? = try {
+        val req = Request.Builder().url("$baseUrl/api/ha/config").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return null
+            val o = JSONObject(resp.body!!.string())
+            HaConfig(
+                url            = o.optString("url",             ""),
+                token          = o.optString("token",           ""),
+                mainSwitch     = o.optString("main_switch",     "switch.homelab_main_switch"),
+                computerSwitch = o.optString("computer_switch", "switch.homelab_computer_switch"),
+                startDelay     = o.optInt("start_delay", 30),
+                stopDelay      = o.optInt("stop_delay",  10),
+            )
+        }
+    } catch (e: Exception) { null }
+
+    fun saveHaConfig(baseUrl: String, token: String, config: HaConfig): Boolean = try {
+        val obj = JSONObject()
+            .put("url",             config.url)
+            .put("token",           config.token)
+            .put("main_switch",     config.mainSwitch)
+            .put("computer_switch", config.computerSwitch)
+            .put("start_delay",     config.startDelay)
+            .put("stop_delay",      config.stopDelay)
+        val body = obj.toString().toRequestBody("application/json".toMediaType())
+        val req  = Request.Builder().url("$baseUrl/api/ha/config").post(body).withBearer(token).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
+
+    fun getHaStatus(baseUrl: String, token: String): HaStatus? = try {
+        val req = Request.Builder().url("$baseUrl/api/ha/status").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return null
+            val o = JSONObject(resp.body!!.string())
+            HaStatus(
+                main     = o.optString("main",     "unknown"),
+                computer = o.optString("computer", "unknown"),
+                busy     = o.optBoolean("busy",    false),
+                sequence = if (o.isNull("sequence")) null else o.optString("sequence"),
+            )
+        }
+    } catch (e: Exception) { null }
+
+    fun haAction(baseUrl: String, token: String, action: String): Boolean = try {
+        val body = JSONObject().put("action", action).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req  = Request.Builder().url("$baseUrl/api/ha/action").post(body).withBearer(token).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
+
+    fun getHaLog(baseUrl: String, token: String): List<HaLogEntry> = try {
+        val req = Request.Builder().url("$baseUrl/api/ha/log").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val arr = JSONObject(resp.body!!.string()).getJSONArray("entries")
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                HaLogEntry(ts = o.optDouble("ts", 0.0), msg = o.optString("msg", ""))
+            }
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun testHaConnection(baseUrl: String, token: String): Pair<Boolean, String> = try {
+        val body = "{}".toRequestBody("application/json".toMediaType())
+        val req  = Request.Builder().url("$baseUrl/api/ha/test").post(body).withBearer(token).build()
+        standardClient.newCall(req).execute().use { resp ->
+            val o   = JSONObject(resp.body!!.string())
+            val ok  = o.optBoolean("ok", false)
+            val msg = o.optString("message", if (ok) "Connected" else "Failed")
+            Pair(ok, msg)
+        }
+    } catch (e: Exception) { Pair(false, e.message ?: "error") }
 }
