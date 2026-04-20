@@ -47,7 +47,15 @@ class DevicesViewModel(app: Application) : AndroidViewModel(app) {
     fun loadDevices() {
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            _devices.value = api.getDevices(baseUrl, token)
+            val devs = api.getDevices(baseUrl, token)
+            _devices.value = devs
+            // Sync passwords from server and merge into local cache
+            val serverPasswords = api.getDevicePasswords(baseUrl, token)
+            if (serverPasswords.isNotEmpty()) {
+                serverPasswords.forEach { (id, pw) -> prefs.saveDevicePassword(id, pw) }
+            }
+            val allIds = devs.map { it.deviceId }
+            _passwords.value = allIds.associateWith { prefs.getDevicePassword(it) }
             _isLoading.value = false
         }
     }
@@ -79,22 +87,17 @@ class DevicesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Save the unlock password for a specific device to local DataStore. */
+    /** No-op: passwords are now synced automatically in loadDevices(). */
+    fun loadPasswords(deviceIds: List<String>) {}
+
+    /** Save the unlock password for a specific device — persists locally and syncs to server. */
     fun saveDevicePassword(deviceId: String, password: String) {
         viewModelScope.launch(Dispatchers.IO) {
             prefs.saveDevicePassword(deviceId, password)
-            // Refresh the in-memory map so the UI updates
+            api.saveDevicePasswordRemote(baseUrl, token, deviceId, password)
             val updated = _passwords.value.toMutableMap()
             updated[deviceId] = password
             _passwords.value = updated
-        }
-    }
-
-    /** Load saved passwords from DataStore into memory for all known devices. */
-    fun loadPasswords(deviceIds: List<String>) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val map = deviceIds.associateWith { prefs.getDevicePassword(it) }
-            _passwords.value = map
         }
     }
 }

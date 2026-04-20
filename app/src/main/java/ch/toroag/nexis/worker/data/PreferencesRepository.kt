@@ -19,7 +19,6 @@ class PreferencesRepository(private val context: Context) {
     companion object {
         private val BASE_URL_KEY         = stringPreferencesKey("base_url")
         private val TOKEN_KEY            = stringPreferencesKey("bearer_token")
-        private val NTFY_TOPIC_KEY       = stringPreferencesKey("ntfy_topic")
         private val DEVICE_ID_KEY        = stringPreferencesKey("device_id")
         private val CACHED_DEVICES_KEY   = stringPreferencesKey("cached_devices")
         private val DEVICE_PASSWORDS_KEY = stringPreferencesKey("device_passwords")
@@ -31,10 +30,9 @@ class PreferencesRepository(private val context: Context) {
             }
     }
 
-    val baseUrl:   Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY]   ?: "" }
-    val token:     Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]      ?: "" }
-    val ntfyTopic: Flow<String> = context.dataStore.data.map { it[NTFY_TOPIC_KEY] ?: "" }
-    val deviceId:  Flow<String> = context.dataStore.data.map { it[DEVICE_ID_KEY]  ?: "" }
+    val baseUrl:  Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY]  ?: "" }
+    val token:    Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]     ?: "" }
+    val deviceId: Flow<String> = context.dataStore.data.map { it[DEVICE_ID_KEY] ?: "" }
 
     /** Returns the persistent device UUID, generating one on first call. */
     suspend fun getOrCreateDeviceId(): String {
@@ -58,10 +56,6 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun clearToken() {
         context.dataStore.edit { prefs -> prefs.remove(TOKEN_KEY) }
-    }
-
-    suspend fun saveNtfyTopic(topic: String) {
-        context.dataStore.edit { prefs -> prefs[NTFY_TOPIC_KEY] = topic.trim() }
     }
 
     // ── Device cache (for WOL when server is offline) ─────────────────────────

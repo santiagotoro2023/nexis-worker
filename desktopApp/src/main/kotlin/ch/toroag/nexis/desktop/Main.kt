@@ -46,8 +46,8 @@ enum class Screen(
 ) {
     Chat      ("chat",      Icons.Default.Chat),
     Remote    ("remote",    Icons.Default.Computer),
-    Memory    ("memory",    Icons.Default.Psychology),
-    History   ("history",  Icons.Default.History),
+    Memories  ("memories",  Icons.Default.Psychology),
+    History   ("history",   Icons.Default.History),
     Schedules ("schedules", Icons.Default.Schedule),
     Devices   ("devices",   Icons.Default.Devices),
     Settings  ("settings",  Icons.Default.Settings),
@@ -248,7 +248,7 @@ private fun MainShell(onLogout: () -> Unit) {
             when (currentScreen) {
                 Screen.Chat      -> ChatScreen(vm = chatVm)
                 Screen.Remote    -> RemoteScreen(vm = remoteVm)
-                Screen.Memory    -> MemoryScreen(vm = memoryVm)
+                Screen.Memories  -> MemoryScreen(vm = memoryVm)
                 Screen.History   -> HistoryScreen(vm = historyVm)
                 Screen.Schedules -> SchedulesScreen(vm = schedulesVm)
                 Screen.Devices   -> DevicesScreen(vm = devicesVm)

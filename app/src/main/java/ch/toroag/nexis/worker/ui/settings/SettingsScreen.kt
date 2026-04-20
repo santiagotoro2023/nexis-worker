@@ -43,13 +43,11 @@ fun SettingsScreen(
     val status        by vm.status.collectAsState()
     val health        by vm.health.collectAsState()
     val healthLoading by vm.healthLoading.collectAsState()
-    val ntfyTopic     by vm.ntfyTopic.collectAsState(initial = "")
     val haConfig      by vm.haConfig.collectAsState()
     val haTestResult  by vm.haTestResult.collectAsState()
     val haTestLoading by vm.haTestLoading.collectAsState()
 
-    var reAuthPw    by remember { mutableStateOf("") }
-    var ntfyInput   by remember(ntfyTopic) { mutableStateOf(ntfyTopic) }
+    var reAuthPw by remember { mutableStateOf("") }
 
     var haUrlInput       by remember(haConfig) { mutableStateOf(haConfig?.url      ?: "") }
     var haUsernameInput  by remember(haConfig) { mutableStateOf(haConfig?.username  ?: "") }
@@ -192,46 +190,6 @@ fun SettingsScreen(
                 NavRow("schedules", onNavigateToSchedules)
                 Spacer(Modifier.height(8.dp))
                 NavRow("device inventory", onNavigateToDevices)
-            }
-
-            // Push notifications (ntfy)
-            SettingsCard(label = "push notifications") {
-                Text(
-                    "get push notifications when scheduled tasks complete. " +
-                    "install the ntfy app and subscribe to the same topic configured on the controller.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NxFg2,
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value         = ntfyInput,
-                    onValueChange = { ntfyInput = it },
-                    label         = { Text("ntfy topic (e.g. nexis-abc123)", color = NxFg2) },
-                    modifier      = Modifier.fillMaxWidth(),
-                    singleLine    = true,
-                    shape         = RoundedCornerShape(4.dp),
-                    colors        = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor      = NxOrangeDim,
-                        unfocusedBorderColor    = NxBorder,
-                        focusedTextColor        = NxFg,
-                        unfocusedTextColor      = NxFg,
-                        cursorColor             = NxOrange,
-                        focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick  = { vm.saveNtfyTopic(ntfyInput) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled  = ntfyInput != ntfyTopic,
-                    shape    = RoundedCornerShape(4.dp),
-                    colors   = ButtonDefaults.buttonColors(
-                        containerColor = NxOrangeDim,
-                        contentColor   = MaterialTheme.colorScheme.background,
-                    ),
-                ) { Text("save") }
             }
 
             // Home Assistant

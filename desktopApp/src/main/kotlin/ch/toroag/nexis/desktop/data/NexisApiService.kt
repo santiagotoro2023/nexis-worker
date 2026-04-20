@@ -639,4 +639,22 @@ class NexisApiService(
             Pair(ok, msg)
         }
     } catch (e: Exception) { Pair(false, e.message ?: "error") }
+
+    // ── Device unlock passwords (server-side, synced to all clients) ───────────
+
+    fun getDevicePasswords(baseUrl: String, token: String): Map<String, String> = try {
+        val req = Request.Builder().url("$baseUrl/api/device/passwords").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyMap()
+            val o = JSONObject(resp.body!!.string())
+            o.keys().asSequence().associateWith { o.optString(it, "") }
+        }
+    } catch (e: Exception) { emptyMap() }
+
+    fun saveDevicePasswordRemote(baseUrl: String, token: String, deviceId: String, password: String): Boolean = try {
+        val body = JSONObject().put("device_id", deviceId).put("password", password)
+            .toString().toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$baseUrl/api/device/password").post(body).withBearer(token).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
 }

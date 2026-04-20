@@ -11,8 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.map
-
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = PreferencesRepository.get(app)
@@ -32,8 +30,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _healthLoading = MutableStateFlow(false)
     val healthLoading: StateFlow<Boolean> = _healthLoading
-
-    val ntfyTopic = prefs.ntfyTopic
 
     private val _haConfig      = MutableStateFlow<NexisApiService.HaConfig?>(null)
     val haConfig: StateFlow<NexisApiService.HaConfig?> = _haConfig
@@ -89,10 +85,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         CertPinStore.clearPin(getApplication())
         _certPin.value = null
         _status.value = "Certificate cleared — next connection will re-pair"
-    }
-
-    fun saveNtfyTopic(topic: String) {
-        viewModelScope.launch { prefs.saveNtfyTopic(topic) }
     }
 
     fun loadHaConfig() {

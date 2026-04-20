@@ -46,23 +46,28 @@ class DevicesViewModel : AutoCloseable {
 
     fun loadDevices() {
         scope.launch(Dispatchers.IO) {
-            // Wait for credentials if the DataStore hasn't emitted yet
             val u = baseUrl.ifEmpty { prefs.baseUrl.first() }
             val t = token.ifEmpty { prefs.token.first() }
             if (u.isEmpty() || t.isEmpty()) return@launch
             _isLoading.value = true
-            _devices.value = runCatching { api.getDevices(u, t) }.getOrDefault(emptyList())
+            val devs = runCatching { api.getDevices(u, t) }.getOrDefault(emptyList())
+            _devices.value = devs
+            // Sync passwords from server and merge into local cache
+            val serverPasswords = runCatching { api.getDevicePasswords(u, t) }.getOrDefault(emptyMap())
+            if (serverPasswords.isNotEmpty()) {
+                serverPasswords.forEach { (id, pw) -> prefs.saveDevicePassword(id, pw) }
+            }
+            val allIds = devs.map { it.deviceId }
+            _passwords.value = allIds.associateWith { prefs.getDevicePassword(it) }
             _isLoading.value = false
         }
     }
 
-    fun loadPasswords(deviceIds: List<String>) {
-        val map = deviceIds.associateWith { prefs.getDevicePassword(it) }
-        _passwords.value = map
-    }
-
     fun saveDevicePassword(deviceId: String, password: String) {
         prefs.saveDevicePassword(deviceId, password)
+        scope.launch(Dispatchers.IO) {
+            runCatching { api.saveDevicePasswordRemote(baseUrl, token, deviceId, password) }
+        }
         _passwords.value = _passwords.value + (deviceId to password)
     }
 
