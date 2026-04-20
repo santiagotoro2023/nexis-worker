@@ -554,7 +554,8 @@ class NexisApiService(
 
     data class HaConfig(
         val url:            String,
-        val token:          String,
+        val username:       String,
+        val password:       String,
         val mainSwitch:     String,
         val computerSwitch: String,
         val startDelay:     Int,
@@ -577,7 +578,8 @@ class NexisApiService(
             val o = JSONObject(resp.body!!.string())
             HaConfig(
                 url            = o.optString("url",             ""),
-                token          = o.optString("token",           ""),
+                username       = o.optString("username",        ""),
+                password       = o.optString("password",        ""),
                 mainSwitch     = o.optString("main_switch",     "switch.homelab_main_switch"),
                 computerSwitch = o.optString("computer_switch", "switch.homelab_computer_switch"),
                 startDelay     = o.optInt("start_delay", 30),
@@ -589,7 +591,8 @@ class NexisApiService(
     fun saveHaConfig(baseUrl: String, token: String, config: HaConfig): Boolean = try {
         val obj = JSONObject()
             .put("url",             config.url)
-            .put("token",           config.token)
+            .put("username",        config.username)
+            .put("password",        config.password)
             .put("main_switch",     config.mainSwitch)
             .put("computer_switch", config.computerSwitch)
             .put("start_delay",     config.startDelay)

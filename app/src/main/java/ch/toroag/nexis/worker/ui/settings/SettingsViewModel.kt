@@ -103,11 +103,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun saveHaConfig(haUrl: String, haToken: String, mainSwitch: String,
+    fun saveHaConfig(haUrl: String, haUsername: String, haPassword: String, mainSwitch: String,
                      computerSwitch: String, startDelay: Int, stopDelay: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             val url = prefs.baseUrl.first(); val tok = prefs.token.first()
-            val cfg = NexisApiService.HaConfig(haUrl, haToken, mainSwitch, computerSwitch, startDelay, stopDelay)
+            val cfg = NexisApiService.HaConfig(haUrl, haUsername, haPassword, mainSwitch, computerSwitch, startDelay, stopDelay)
             val ok  = runCatching { api.saveHaConfig(url, tok, cfg) }.getOrDefault(false)
             if (ok) { _haConfig.value = cfg; _status.value = "Home Assistant settings saved" }
             else _status.value = "Failed to save HA settings"

@@ -115,10 +115,10 @@ class SettingsViewModel : AutoCloseable {
         }
     }
 
-    fun saveHaConfig(haUrl: String, haToken: String, mainSwitch: String,
+    fun saveHaConfig(haUrl: String, haUsername: String, haPassword: String, mainSwitch: String,
                      computerSwitch: String, startDelay: Int, stopDelay: Int) {
         scope.launch(Dispatchers.IO) {
-            val cfg = NexisApiService.HaConfig(haUrl, haToken, mainSwitch, computerSwitch, startDelay, stopDelay)
+            val cfg = NexisApiService.HaConfig(haUrl, haUsername, haPassword, mainSwitch, computerSwitch, startDelay, stopDelay)
             val ok  = runCatching { api.saveHaConfig(baseUrlCurrent, tokenCurrent, cfg) }.getOrDefault(false)
             if (ok) { _haConfig.value = cfg; _status.value = "Home Assistant settings saved" }
             else _status.value = "Failed to save HA settings"

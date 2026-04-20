@@ -37,10 +37,11 @@ fun SettingsScreen(
 
     var reAuthPw by remember { mutableStateOf("") }
 
-    var haUrlInput     by remember(haConfig) { mutableStateOf(haConfig?.url ?: "") }
-    var haTokenInput   by remember(haConfig) { mutableStateOf(haConfig?.token ?: "") }
-    var haTokenVisible by remember { mutableStateOf(false) }
-    var haMainInput    by remember(haConfig) { mutableStateOf(haConfig?.mainSwitch     ?: "switch.homelab_main_switch") }
+    var haUrlInput        by remember(haConfig) { mutableStateOf(haConfig?.url      ?: "") }
+    var haUsernameInput   by remember(haConfig) { mutableStateOf(haConfig?.username  ?: "") }
+    var haPasswordInput   by remember(haConfig) { mutableStateOf(haConfig?.password  ?: "") }
+    var haPasswordVisible by remember { mutableStateOf(false) }
+    var haMainInput       by remember(haConfig) { mutableStateOf(haConfig?.mainSwitch     ?: "switch.homelab_main_switch") }
     var haCompInput    by remember(haConfig) { mutableStateOf(haConfig?.computerSwitch ?: "switch.homelab_computer_switch") }
     var haStartDelay   by remember(haConfig) { mutableStateOf((haConfig?.startDelay ?: 30).toString()) }
     var haStopDelay    by remember(haConfig) { mutableStateOf((haConfig?.stopDelay  ?: 10).toString()) }
@@ -145,15 +146,21 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
                 textStyle = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(6.dp))
-            OutlinedTextField(haTokenInput, { haTokenInput = it },
-                label = { Text("long-lived access token", color = NxFg2) },
+            OutlinedTextField(haUsernameInput, { haUsernameInput = it },
+                label = { Text("username", color = NxFg2) },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                shape = RoundedCornerShape(4.dp), colors = fieldColors,
+                textStyle = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(haPasswordInput, { haPasswordInput = it },
+                label = { Text("password", color = NxFg2) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
                 textStyle = MaterialTheme.typography.bodyMedium,
-                visualTransformation = if (haTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                visualTransformation = if (haPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    IconButton(onClick = { haTokenVisible = !haTokenVisible }, modifier = Modifier.size(24.dp)) {
-                        Icon(if (haTokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    IconButton(onClick = { haPasswordVisible = !haPasswordVisible }, modifier = Modifier.size(24.dp)) {
+                        Icon(if (haPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                              null, Modifier.size(16.dp), tint = NxFg2)
                     }
                 })
@@ -197,7 +204,7 @@ fun SettingsScreen(
                 }
                 Button(
                     onClick = {
-                        vm.saveHaConfig(haUrlInput, haTokenInput, haMainInput, haCompInput,
+                        vm.saveHaConfig(haUrlInput, haUsernameInput, haPasswordInput, haMainInput, haCompInput,
                             haStartDelay.toIntOrNull() ?: 30, haStopDelay.toIntOrNull() ?: 10)
                     },
                     modifier = Modifier.weight(1f).height(40.dp),
