@@ -27,9 +27,6 @@ fun DevicesScreen(vm: DevicesViewModel) {
     val passwords    by vm.passwords.collectAsState()
 
     LaunchedEffect(Unit) { vm.loadDevices() }
-    LaunchedEffect(devices) {
-        if (devices.isNotEmpty()) vm.loadPasswords(devices.map { it.deviceId })
-    }
 
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
