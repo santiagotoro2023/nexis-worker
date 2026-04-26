@@ -86,7 +86,7 @@ jobs:
 
       - name: Build desktop .deb
         env:
-          BUILD_TIMESTAMP: ${{ steps.ver.outputs.version }}
+          BUILD_TIMESTAMP: ${{ env.BUILD_TIMESTAMP }}
         run: gradle :desktopApp:packageDeb --no-daemon
 
       # ── GitHub Release ────────────────────────────────────────────────────────
