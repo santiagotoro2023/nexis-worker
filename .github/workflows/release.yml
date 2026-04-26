@@ -49,6 +49,7 @@ jobs:
         run: |
           V="${{ env.NEXIS_VERSION }}"
           echo "version=${V#v}" >> "$GITHUB_OUTPUT"
+          echo "BUILD_TIMESTAMP=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Prepare keystore
         run: |
@@ -67,7 +68,7 @@ jobs:
       # ── Android APK ──────────────────────────────────────────────────────────
       - name: Build and sign release APK
         env:
-          BUILD_TIMESTAMP:   ${{ steps.ver.outputs.version }}
+          BUILD_TIMESTAMP:   ${{ env.BUILD_TIMESTAMP }}
           KEYSTORE_PATH:     /tmp/nexis-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
