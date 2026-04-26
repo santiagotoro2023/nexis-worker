@@ -10,6 +10,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed interface UpdateState {
@@ -88,7 +89,7 @@ class SettingsViewModel : AutoCloseable {
     fun reAuthenticate(password: String, onDone: () -> Unit) {
         if (password.isBlank() || baseUrlCurrent.isEmpty()) return
         scope.launch {
-            val username = kotlinx.coroutines.flow.first(prefs.username).ifBlank { "creator" }
+            val username = prefs.username.first().ifBlank { "creator" }
             runCatching { api.getToken(baseUrlCurrent, username, password) }
                 .onSuccess { token ->
                     prefs.saveCredentials(baseUrlCurrent, token, username)
