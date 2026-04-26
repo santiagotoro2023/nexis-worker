@@ -88,9 +88,10 @@ class SettingsViewModel : AutoCloseable {
     fun reAuthenticate(password: String, onDone: () -> Unit) {
         if (password.isBlank() || baseUrlCurrent.isEmpty()) return
         scope.launch {
-            runCatching { api.getToken(baseUrlCurrent, password) }
+            val username = kotlinx.coroutines.flow.first(prefs.username).ifBlank { "creator" }
+            runCatching { api.getToken(baseUrlCurrent, username, password) }
                 .onSuccess { token ->
-                    prefs.saveCredentials(baseUrlCurrent, token)
+                    prefs.saveCredentials(baseUrlCurrent, token, username)
                     _status.value = "Re-authenticated successfully"
                     onDone()
                 }

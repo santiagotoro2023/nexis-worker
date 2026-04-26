@@ -70,10 +70,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun reAuthenticate(newPassword: String, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
-            val url = prefs.baseUrl.first()
-            runCatching { api.getToken(url, newPassword) }
+            val url      = prefs.baseUrl.first()
+            val username = prefs.username.first().ifBlank { "creator" }
+            runCatching { api.getToken(url, username, newPassword) }
                 .onSuccess { token ->
-                    prefs.saveCredentials(url, token)
+                    prefs.saveCredentials(url, token, username)
                     _status.value = "Re-authenticated"
                     onSuccess()
                 }
