@@ -3,6 +3,7 @@ package ch.toroag.nexis.desktop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -273,12 +274,15 @@ private fun NavItem(
     selected: Boolean,
     onClick:  () -> Unit,
 ) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
     Row(
         Modifier
             .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(shape)
             .background(if (selected) NxDim else androidx.compose.ui.graphics.Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {

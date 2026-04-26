@@ -37,7 +37,7 @@ fun LoginScreen(
             horizontalAlignment   = Alignment.Start,
         ) {
             Text(
-                "NeXiS",
+                "NEXIS",
                 style         = MaterialTheme.typography.headlineLarge,
                 color         = NxOrange,
                 fontWeight    = FontWeight.Bold,
@@ -62,7 +62,7 @@ fun LoginScreen(
                 },
                 modifier  = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape      = RoundedCornerShape(4.dp),
+                shape      = RoundedCornerShape(12.dp),
                 colors     = nxFieldColors(),
                 textStyle  = MaterialTheme.typography.bodyMedium,
             )
@@ -76,7 +76,7 @@ fun LoginScreen(
                 onValueChange = { password = it },
                 modifier      = Modifier.fillMaxWidth(),
                 singleLine    = true,
-                shape         = RoundedCornerShape(4.dp),
+                shape         = RoundedCornerShape(12.dp),
                 colors        = nxFieldColors(),
                 textStyle     = MaterialTheme.typography.bodyMedium,
                 visualTransformation = if (showPw) VisualTransformation.None
@@ -107,7 +107,7 @@ fun LoginScreen(
                 onClick  = { vm.login(url, password) },
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 enabled  = uiState !is LoginState.Loading,
-                shape    = RoundedCornerShape(4.dp),
+                shape    = RoundedCornerShape(12.dp),
                 colors   = ButtonDefaults.buttonColors(
                     containerColor = NxOrangeDim,
                     contentColor   = MaterialTheme.colorScheme.background,
