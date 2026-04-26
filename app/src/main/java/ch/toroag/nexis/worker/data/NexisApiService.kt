@@ -44,14 +44,14 @@ class NexisApiService(
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
-    /** Exchange a plaintext password for a persistent Bearer token. */
-    fun getToken(baseUrl: String, password: String): String {
-        val body = JSONObject().put("password", password).toString()
+    /** Exchange username + password for a persistent Bearer token. */
+    fun getToken(baseUrl: String, username: String, password: String): String {
+        val body = JSONObject().put("username", username).put("password", password).toString()
             .toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$baseUrl/api/token").post(body).build()
         standardClient.newCall(req).execute().use { resp ->
             val text = resp.body?.string() ?: throw Exception("empty response")
-            if (!resp.isSuccessful) throw Exception("invalid password")
+            if (!resp.isSuccessful) throw Exception("Invalid username or password")
             return JSONObject(text).getString("token")
         }
     }
@@ -730,13 +730,13 @@ class NexisApiService(
         val ctsTotal: Int, val ctsActive: Int,
     )
 
-    fun getHvToken(hvUrl: String, password: String): String {
-        val body = JSONObject().put("password", password).toString()
+    fun getHvToken(hvUrl: String, username: String, password: String): String {
+        val body = JSONObject().put("username", username).put("password", password).toString()
             .toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$hvUrl/api/auth/login").post(body).build()
         standardClient.newCall(req).execute().use { resp ->
             val text = resp.body?.string() ?: throw Exception("empty response")
-            if (!resp.isSuccessful) throw Exception("invalid password")
+            if (!resp.isSuccessful) throw Exception("Invalid username or password")
             return JSONObject(text).getString("token")
         }
     }

@@ -35,6 +35,7 @@ fun LoginScreen(
     val focusMgr = LocalFocusManager.current
 
     var url      by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPw   by remember { mutableStateOf(false) }
 
@@ -73,7 +74,7 @@ fun LoginScreen(
             placeholder   = { Text("192.168.1.x:8443  or  nexis.example.com", color = NxFg2, style = MaterialTheme.typography.labelSmall) },
             modifier      = Modifier.fillMaxWidth(),
             singleLine    = true,
-            shape         = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+            shape         = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
             colors        = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor      = NxOrangeDim,
                 unfocusedBorderColor    = NxBorder,
@@ -93,6 +94,34 @@ fun LoginScreen(
 
         Spacer(Modifier.height(16.dp))
 
+        Text("username", style = MaterialTheme.typography.labelMedium, color = NxFg2)
+        Spacer(Modifier.height(4.dp))
+        OutlinedTextField(
+            value         = username,
+            onValueChange = { username = it },
+            placeholder   = { Text("creator", color = NxFg2, style = MaterialTheme.typography.labelSmall) },
+            modifier      = Modifier.fillMaxWidth(),
+            singleLine    = true,
+            shape         = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            colors        = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor      = NxOrangeDim,
+                unfocusedBorderColor    = NxBorder,
+                focusedTextColor        = NxFg,
+                unfocusedTextColor      = NxFg,
+                cursorColor             = NxOrange,
+                focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
+            textStyle = MaterialTheme.typography.bodyMedium,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction    = ImeAction.Next,
+            ),
+            keyboardActions = KeyboardActions(onNext = { focusMgr.moveFocus(FocusDirection.Down) }),
+        )
+
+        Spacer(Modifier.height(16.dp))
+
         Text("password", style = MaterialTheme.typography.labelMedium, color = NxFg2)
         Spacer(Modifier.height(4.dp))
         OutlinedTextField(
@@ -100,7 +129,7 @@ fun LoginScreen(
             onValueChange = { password = it },
             modifier      = Modifier.fillMaxWidth(),
             singleLine    = true,
-            shape         = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+            shape         = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
             colors        = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor      = NxOrangeDim,
                 unfocusedBorderColor    = NxBorder,
@@ -128,7 +157,7 @@ fun LoginScreen(
             ),
             keyboardActions = KeyboardActions(onDone = {
                 focusMgr.clearFocus()
-                vm.login(url, password)
+                vm.login(url, username, password)
             }),
         )
 
@@ -144,10 +173,10 @@ fun LoginScreen(
         Spacer(Modifier.height(28.dp))
 
         Button(
-            onClick  = { vm.login(url, password) },
+            onClick  = { vm.login(url, username, password) },
             modifier = Modifier.fillMaxWidth().height(44.dp),
             enabled  = uiState !is LoginState.Loading,
-            shape    = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+            shape    = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
             colors   = ButtonDefaults.buttonColors(
                 containerColor = NxOrangeDim,
                 contentColor   = MaterialTheme.colorScheme.background,

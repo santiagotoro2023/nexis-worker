@@ -19,6 +19,7 @@ class PreferencesRepository(private val context: Context) {
     companion object {
         private val BASE_URL_KEY         = stringPreferencesKey("base_url")
         private val TOKEN_KEY            = stringPreferencesKey("bearer_token")
+        private val USERNAME_KEY         = stringPreferencesKey("username")
         private val DEVICE_ID_KEY        = stringPreferencesKey("device_id")
         private val CACHED_DEVICES_KEY   = stringPreferencesKey("cached_devices")
         private val DEVICE_PASSWORDS_KEY = stringPreferencesKey("device_passwords")
@@ -34,6 +35,7 @@ class PreferencesRepository(private val context: Context) {
 
     val baseUrl:  Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY]  ?: "" }
     val token:    Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]     ?: "" }
+    val username: Flow<String> = context.dataStore.data.map { it[USERNAME_KEY]  ?: "" }
     val deviceId: Flow<String> = context.dataStore.data.map { it[DEVICE_ID_KEY] ?: "" }
     val hvUrl:    Flow<String> = context.dataStore.data.map { it[HV_URL_KEY]    ?: "" }
     val hvToken:  Flow<String> = context.dataStore.data.map { it[HV_TOKEN_KEY]  ?: "" }
@@ -47,10 +49,11 @@ class PreferencesRepository(private val context: Context) {
         return newId
     }
 
-    suspend fun saveCredentials(baseUrl: String, token: String) {
+    suspend fun saveCredentials(baseUrl: String, token: String, username: String = "") {
         context.dataStore.edit { prefs ->
             prefs[BASE_URL_KEY] = baseUrl.trimEnd('/')
             prefs[TOKEN_KEY]    = token
+            if (username.isNotEmpty()) prefs[USERNAME_KEY] = username
         }
     }
 

@@ -23,6 +23,7 @@ fun LoginScreen(
 ) {
     val uiState by vm.uiState.collectAsState()
     var url      by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPw   by remember { mutableStateOf(false) }
 
@@ -69,6 +70,21 @@ fun LoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            Text("username", style = MaterialTheme.typography.labelMedium, color = NxFg2)
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(
+                value         = username,
+                onValueChange = { username = it },
+                placeholder   = { Text("creator", color = NxFg2, style = MaterialTheme.typography.labelSmall) },
+                modifier      = Modifier.fillMaxWidth(),
+                singleLine    = true,
+                shape         = RoundedCornerShape(12.dp),
+                colors        = nxFieldColors(),
+                textStyle     = MaterialTheme.typography.bodyMedium,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
             Text("password", style = MaterialTheme.typography.labelMedium, color = NxFg2)
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(
@@ -104,7 +120,7 @@ fun LoginScreen(
             Spacer(Modifier.height(28.dp))
 
             Button(
-                onClick  = { vm.login(url, password) },
+                onClick  = { vm.login(url, username, password) },
                 modifier = Modifier.fillMaxWidth().height(44.dp),
                 enabled  = uiState !is LoginState.Loading,
                 shape    = RoundedCornerShape(12.dp),

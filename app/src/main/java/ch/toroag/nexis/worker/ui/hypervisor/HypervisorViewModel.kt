@@ -89,10 +89,10 @@ class HypervisorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun connect(hvUrl: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun connect(hvUrl: String, username: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val tok = api.getHvToken(hvUrl, password)
+                val tok = api.getHvToken(hvUrl, username, password)
                 prefs.saveHvCredentials(hvUrl, tok)
                 launch(Dispatchers.Main) { onSuccess() }
             } catch (e: Exception) {

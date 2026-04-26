@@ -22,17 +22,17 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
     /** Fingerprint of the server cert, set after first successful connection. */
     val certFingerprint: String? get() = CertPinStore.getPin(getApplication())
 
-    fun login(baseUrl: String, password: String) {
-        if (baseUrl.isBlank() || password.isBlank()) {
-            _uiState.value = LoginState.Error("URL and password are required")
+    fun login(baseUrl: String, username: String, password: String) {
+        if (baseUrl.isBlank() || username.isBlank() || password.isBlank()) {
+            _uiState.value = LoginState.Error("URL, username and password are required")
             return
         }
         val url = if (baseUrl.startsWith("http")) baseUrl else "https://$baseUrl"
         _uiState.value = LoginState.Loading
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { api.getToken(url, password) }
+            runCatching { api.getToken(url, username, password) }
                 .onSuccess { token ->
-                    prefs.saveCredentials(url, token)
+                    prefs.saveCredentials(url, token, username)
                     _uiState.value = LoginState.Success
                 }
                 .onFailure { e ->

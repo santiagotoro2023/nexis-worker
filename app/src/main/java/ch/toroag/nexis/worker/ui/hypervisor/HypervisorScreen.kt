@@ -64,7 +64,7 @@ fun HypervisorScreen(
         if (!configured) {
             ConnectPanel(
                 modifier = Modifier.padding(pad),
-                onConnect = { url, pw -> vm.connect(url, pw, onSuccess = {}, onError = {}) }
+                onConnect = { url, user, pw -> vm.connect(url, user, pw, onSuccess = {}, onError = {}) }
             )
         } else {
             Column(
@@ -108,11 +108,12 @@ fun HypervisorScreen(
 @Composable
 private fun ConnectPanel(
     modifier: Modifier = Modifier,
-    onConnect: (String, String) -> Unit,
+    onConnect: (String, String, String) -> Unit,
 ) {
-    var url by remember { mutableStateOf("https://") }
-    var pw  by remember { mutableStateOf("") }
-    var err by remember { mutableStateOf("") }
+    var url      by remember { mutableStateOf("https://") }
+    var username by remember { mutableStateOf("") }
+    var pw       by remember { mutableStateOf("") }
+    var err      by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier
@@ -126,7 +127,7 @@ private fun ConnectPanel(
         Spacer(Modifier.height(16.dp))
         Text("HYPERVISOR NODE", color = NxOrange, fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp, style = MaterialTheme.typography.titleSmall)
-        Text("No node connected. Enter the hypervisor address and access code.",
+        Text("No node connected. Enter the hypervisor address and credentials.",
             color = NxFg2, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(vertical = 8.dp))
         Spacer(Modifier.height(12.dp))
@@ -139,8 +140,17 @@ private fun ConnectPanel(
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
+            value = username, onValueChange = { username = it },
+            label = { Text("Username", color = NxFg2) },
+            placeholder = { Text("creator", color = NxFg2) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = nxTextFieldColors(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
             value = pw, onValueChange = { pw = it },
-            label = { Text("Access Code", color = NxFg2) },
+            label = { Text("Password", color = NxFg2) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
@@ -154,9 +164,11 @@ private fun ConnectPanel(
         Spacer(Modifier.height(12.dp))
         Button(
             onClick = {
-                if (url.isBlank() || pw.isBlank()) { err = "URL and access code required"; return@Button }
+                if (url.isBlank() || username.isBlank() || pw.isBlank()) {
+                    err = "URL, username and password are required"; return@Button
+                }
                 err = ""
-                onConnect(url.trim(), pw)
+                onConnect(url.trim(), username.trim(), pw)
             },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = NxOrange, contentColor = NxBg),

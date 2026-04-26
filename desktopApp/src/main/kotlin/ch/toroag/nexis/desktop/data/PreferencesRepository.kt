@@ -19,6 +19,7 @@ class PreferencesRepository private constructor() {
     // ── Keys ──────────────────────────────────────────────────────────────────
     private val K_BASE_URL        = "base_url"
     private val K_TOKEN           = "bearer_token"
+    private val K_USERNAME        = "username"
     private val K_DEVICE_ID       = "device_id"
     private val K_CACHED_DEVICES  = "cached_devices"
     private val K_DEVICE_PASSWORDS = "device_passwords"
@@ -26,24 +27,30 @@ class PreferencesRepository private constructor() {
     private val K_HV_TOKEN         = "hv_token"
 
     // ── StateFlows (updated after writes) ─────────────────────────────────────
-    private val _baseUrl  = MutableStateFlow(javaPrefs.get(K_BASE_URL, ""))
-    private val _token    = MutableStateFlow(javaPrefs.get(K_TOKEN,    ""))
+    private val _baseUrl  = MutableStateFlow(javaPrefs.get(K_BASE_URL,  ""))
+    private val _token    = MutableStateFlow(javaPrefs.get(K_TOKEN,     ""))
+    private val _username = MutableStateFlow(javaPrefs.get(K_USERNAME,  ""))
     private val _deviceId = MutableStateFlow(javaPrefs.get(K_DEVICE_ID, ""))
     private val _hvUrl    = MutableStateFlow(javaPrefs.get(K_HV_URL,    ""))
     private val _hvToken  = MutableStateFlow(javaPrefs.get(K_HV_TOKEN,  ""))
 
     val baseUrl:  Flow<String> = _baseUrl
     val token:    Flow<String> = _token
+    val username: Flow<String> = _username
     val deviceId: Flow<String> = _deviceId
     val hvUrl:    Flow<String> = _hvUrl
     val hvToken:  Flow<String> = _hvToken
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
-    suspend fun saveCredentials(baseUrl: String, token: String) {
+    suspend fun saveCredentials(baseUrl: String, token: String, username: String = "") {
         val url = baseUrl.trimEnd('/')
         javaPrefs.put(K_BASE_URL, url)
         javaPrefs.put(K_TOKEN,    token)
+        if (username.isNotEmpty()) {
+            javaPrefs.put(K_USERNAME, username)
+            _username.value = username
+        }
         javaPrefs.flush()
         _baseUrl.value = url
         _token.value   = token
