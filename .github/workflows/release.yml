@@ -1,11 +1,27 @@
-name: Build & Release
+# Nexis Worker — Release Pipeline
+# Builds: Android APK + Linux desktop .deb
+# Triggered on: version tags (v1.0.0, v1.2.3, …)
+# Uniform versioning with nexis-hypervisor and nexis-controller.
+
+name: Release
 
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  NEXIS_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', inputs.version) }}
 
 jobs:
   build:
+    name: Build Android APK + Desktop .deb
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -25,9 +41,14 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      # Remove any machine-specific java.home override that may be in gradle.properties
       - name: Strip local gradle.properties overrides
         run: sed -i '/^org\.gradle\.java\.home/d' gradle.properties
+
+      - name: Extract version
+        id: ver
+        run: |
+          V="${{ env.NEXIS_VERSION }}"
+          echo "version=${V#v}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare keystore
         run: |
@@ -43,18 +64,20 @@ jobs:
             echo "KEY_PASSWORD=temppass"      >> $GITHUB_ENV
           fi
 
-      - name: Set build timestamp
-        run: echo "BUILD_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
-
       # ── Android APK ──────────────────────────────────────────────────────────
       - name: Build and sign release APK
         env:
-          BUILD_TIMESTAMP:   ${{ env.BUILD_TIMESTAMP }}
+          BUILD_TIMESTAMP:   ${{ steps.ver.outputs.version }}
           KEYSTORE_PATH:     /tmp/nexis-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
         run: gradle :app:assembleRelease --no-daemon
+
+      - name: Rename APK
+        run: |
+          mv app/build/outputs/apk/release/app-release.apk \
+             "nexis-worker-${{ steps.ver.outputs.version }}.apk"
 
       # ── Desktop .deb ─────────────────────────────────────────────────────────
       - name: Install .deb build dependencies
@@ -62,18 +85,45 @@ jobs:
 
       - name: Build desktop .deb
         env:
-          BUILD_TIMESTAMP: ${{ env.BUILD_TIMESTAMP }}
+          BUILD_TIMESTAMP: ${{ steps.ver.outputs.version }}
         run: gradle :desktopApp:packageDeb --no-daemon
 
       # ── GitHub Release ────────────────────────────────────────────────────────
+      - name: Generate release notes
+        id: notes
+        run: |
+          VERSION="${{ env.NEXIS_VERSION }}"
+          cat > notes.md << EOF
+          ## Nexis Worker ${VERSION}
+
+          ### Artefacts
+          | File | Description |
+          |------|-------------|
+          | \`nexis-worker-${VERSION#v}.apk\` | Android application package |
+          | \`nexis-worker-desktop_${VERSION#v}_amd64.deb\` | Linux desktop Debian package |
+
+          ### Install — Android
+          \`\`\`
+          adb install nexis-worker-${VERSION#v}.apk
+          \`\`\`
+          Or sideload the APK directly. The app auto-updates on subsequent releases.
+
+          ### Install — Linux Desktop
+          \`\`\`bash
+          sudo dpkg -i nexis-worker-desktop_${VERSION#v}_amd64.deb
+          \`\`\`
+
+          ---
+          Part of the [Nexis ecosystem](https://github.com/santiagotoro2023).
+          EOF
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.BUILD_TIMESTAMP }}
-          name:     NeXiS Worker v${{ env.BUILD_TIMESTAMP }}
-          body: |
-            **Android:** install the APK directly or let the app auto-update.
-            **Linux desktop:** install the `.deb` via `sudo dpkg -i nexis-worker-desktop_*.deb` or let the desktop app auto-update.
+          name: "Nexis Worker ${{ env.NEXIS_VERSION }}"
+          body_path: notes.md
           files: |
-            app/build/outputs/apk/release/app-release.apk
-            desktopApp/build/compose/binaries/main/deb/nexis-worker-desktop_1.0.0_amd64.deb
+            nexis-worker-${{ steps.ver.outputs.version }}.apk
+            desktopApp/build/compose/binaries/main/deb/nexis-worker-desktop_${{ steps.ver.outputs.version }}_amd64.deb
+          draft: false
+          prerelease: ${{ contains(env.NEXIS_VERSION, '-') }}

@@ -19,7 +19,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildTime.toInt()
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         buildConfigField("long", "VERSION_TIMESTAMP", "${buildTime}L")
     }

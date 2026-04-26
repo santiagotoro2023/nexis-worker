@@ -32,10 +32,11 @@ import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
 fun SettingsScreen(
     onBack:           () -> Unit,
     onLogout:         () -> Unit,
-    onNavigateToMemories:  () -> Unit = {},
-    onNavigateToHistory:   () -> Unit = {},
-    onNavigateToSchedules: () -> Unit = {},
-    onNavigateToDevices:   () -> Unit = {},
+    onNavigateToMemories:   () -> Unit = {},
+    onNavigateToHistory:    () -> Unit = {},
+    onNavigateToSchedules:  () -> Unit = {},
+    onNavigateToDevices:    () -> Unit = {},
+    onNavigateToHypervisor: () -> Unit = {},
     vm: SettingsViewModel = viewModel(),
 ) {
     val baseUrl       by vm.baseUrl.collectAsState()
@@ -190,6 +191,8 @@ fun SettingsScreen(
                 NavRow("schedules", onNavigateToSchedules)
                 Spacer(Modifier.height(8.dp))
                 NavRow("device inventory", onNavigateToDevices)
+                Spacer(Modifier.height(8.dp))
+                NavRow("hypervisor node", onNavigateToHypervisor)
             }
 
             // Home Assistant

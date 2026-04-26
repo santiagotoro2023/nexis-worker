@@ -22,6 +22,8 @@ class PreferencesRepository(private val context: Context) {
         private val DEVICE_ID_KEY        = stringPreferencesKey("device_id")
         private val CACHED_DEVICES_KEY   = stringPreferencesKey("cached_devices")
         private val DEVICE_PASSWORDS_KEY = stringPreferencesKey("device_passwords")
+        private val HV_URL_KEY           = stringPreferencesKey("hv_url")
+        private val HV_TOKEN_KEY         = stringPreferencesKey("hv_token")
 
         @Volatile private var instance: PreferencesRepository? = null
         fun get(context: Context): PreferencesRepository =
@@ -33,6 +35,8 @@ class PreferencesRepository(private val context: Context) {
     val baseUrl:  Flow<String> = context.dataStore.data.map { it[BASE_URL_KEY]  ?: "" }
     val token:    Flow<String> = context.dataStore.data.map { it[TOKEN_KEY]     ?: "" }
     val deviceId: Flow<String> = context.dataStore.data.map { it[DEVICE_ID_KEY] ?: "" }
+    val hvUrl:    Flow<String> = context.dataStore.data.map { it[HV_URL_KEY]    ?: "" }
+    val hvToken:  Flow<String> = context.dataStore.data.map { it[HV_TOKEN_KEY]  ?: "" }
 
     /** Returns the persistent device UUID, generating one on first call. */
     suspend fun getOrCreateDeviceId(): String {
@@ -56,6 +60,17 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun clearToken() {
         context.dataStore.edit { prefs -> prefs.remove(TOKEN_KEY) }
+    }
+
+    suspend fun saveHvCredentials(hvUrl: String, hvToken: String) {
+        context.dataStore.edit { prefs ->
+            prefs[HV_URL_KEY]   = hvUrl.trimEnd('/')
+            prefs[HV_TOKEN_KEY] = hvToken
+        }
+    }
+
+    suspend fun clearHvToken() {
+        context.dataStore.edit { prefs -> prefs.remove(HV_TOKEN_KEY) }
     }
 
     // ── Device cache (for WOL when server is offline) ─────────────────────────

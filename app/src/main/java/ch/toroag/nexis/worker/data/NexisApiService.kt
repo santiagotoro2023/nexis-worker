@@ -711,4 +711,95 @@ class NexisApiService(
         val req = Request.Builder().url("$baseUrl/api/device/password").post(body).withBearer(token).build()
         standardClient.newCall(req).execute().use { it.isSuccessful }
     } catch (e: Exception) { false }
+
+    // ── Hypervisor API (routed through controller proxy) ─────────────────────
+
+    data class HvVm(
+        val id: String, val name: String, val status: String,
+        val vcpus: Int, val memoryMb: Long,
+    )
+
+    data class HvContainer(
+        val name: String, val status: String,
+        val memoryMb: Long, val cpus: Int,
+    )
+
+    data class HvMetrics(
+        val cpu: Double, val mem: Double, val disk: Double,
+        val vmsTotal: Int, val vmsActive: Int,
+        val ctsTotal: Int, val ctsActive: Int,
+    )
+
+    fun getHvToken(hvUrl: String, password: String): String {
+        val body = JSONObject().put("password", password).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$hvUrl/api/auth/login").post(body).build()
+        standardClient.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw Exception("empty response")
+            if (!resp.isSuccessful) throw Exception("invalid password")
+            return JSONObject(text).getString("token")
+        }
+    }
+
+    fun listHvVms(hvUrl: String, hvToken: String): List<HvVm> = try {
+        val req = Request.Builder().url("$hvUrl/api/vms").withBearer(hvToken).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val arr = JSONObject(resp.body!!.string()).getJSONArray("vms")
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                HvVm(o.getString("id"), o.getString("name"), o.optString("status", "unknown"),
+                     o.optInt("vcpus", 1), o.optLong("memory_mb", 0))
+            }
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun hvVmAction(hvUrl: String, hvToken: String, vmId: String, action: String): Boolean = try {
+        val req = Request.Builder().url("$hvUrl/api/vms/$vmId/$action")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .withBearer(hvToken).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
+
+    fun listHvContainers(hvUrl: String, hvToken: String): List<HvContainer> = try {
+        val req = Request.Builder().url("$hvUrl/api/containers").withBearer(hvToken).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val arr = JSONObject(resp.body!!.string()).getJSONArray("containers")
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                HvContainer(o.getString("name"), o.optString("status", "unknown"),
+                            o.optLong("memory_mb", 0), o.optInt("cpus", 1))
+            }
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun hvContainerAction(hvUrl: String, hvToken: String, ctName: String, action: String): Boolean = try {
+        val req = Request.Builder().url("$hvUrl/api/containers/$ctName/$action")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .withBearer(hvToken).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
+
+    fun getHvMetrics(hvUrl: String, hvToken: String): HvMetrics? = try {
+        val req = Request.Builder().url("$hvUrl/api/metrics").withBearer(hvToken).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return null
+            val o = JSONObject(resp.body!!.string())
+            HvMetrics(o.optDouble("cpu", 0.0), o.optDouble("mem", 0.0), o.optDouble("disk", 0.0),
+                      o.optInt("vms_total", 0), o.optInt("vms_active", 0),
+                      o.optInt("cts_total", 0), o.optInt("cts_active", 0))
+        }
+    } catch (e: Exception) { null }
+
+    fun hvCommand(hvUrl: String, hvToken: String, command: String): String = try {
+        val body = JSONObject().put("command", command).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$hvUrl/api/nexis/command")
+            .post(body).withBearer(hvToken).build()
+        standardClient.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: return "No response"
+            JSONObject(text).optString("result", text)
+        }
+    } catch (e: Exception) { "Error: ${e.message}" }
 }

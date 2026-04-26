@@ -22,15 +22,21 @@ class PreferencesRepository private constructor() {
     private val K_DEVICE_ID       = "device_id"
     private val K_CACHED_DEVICES  = "cached_devices"
     private val K_DEVICE_PASSWORDS = "device_passwords"
+    private val K_HV_URL           = "hv_url"
+    private val K_HV_TOKEN         = "hv_token"
 
     // ── StateFlows (updated after writes) ─────────────────────────────────────
-    private val _baseUrl = MutableStateFlow(javaPrefs.get(K_BASE_URL, ""))
-    private val _token   = MutableStateFlow(javaPrefs.get(K_TOKEN,    ""))
+    private val _baseUrl  = MutableStateFlow(javaPrefs.get(K_BASE_URL, ""))
+    private val _token    = MutableStateFlow(javaPrefs.get(K_TOKEN,    ""))
     private val _deviceId = MutableStateFlow(javaPrefs.get(K_DEVICE_ID, ""))
+    private val _hvUrl    = MutableStateFlow(javaPrefs.get(K_HV_URL,    ""))
+    private val _hvToken  = MutableStateFlow(javaPrefs.get(K_HV_TOKEN,  ""))
 
     val baseUrl:  Flow<String> = _baseUrl
     val token:    Flow<String> = _token
     val deviceId: Flow<String> = _deviceId
+    val hvUrl:    Flow<String> = _hvUrl
+    val hvToken:  Flow<String> = _hvToken
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +53,21 @@ class PreferencesRepository private constructor() {
         javaPrefs.remove(K_TOKEN)
         javaPrefs.flush()
         _token.value = ""
+    }
+
+    fun saveHvCredentials(hvUrl: String, hvToken: String) {
+        val url = hvUrl.trimEnd('/')
+        javaPrefs.put(K_HV_URL,   url)
+        javaPrefs.put(K_HV_TOKEN, hvToken)
+        runCatching { javaPrefs.flush() }
+        _hvUrl.value   = url
+        _hvToken.value = hvToken
+    }
+
+    fun clearHvToken() {
+        javaPrefs.remove(K_HV_TOKEN)
+        runCatching { javaPrefs.flush() }
+        _hvToken.value = ""
     }
 
     // ── Device ID ─────────────────────────────────────────────────────────────

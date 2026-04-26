@@ -22,6 +22,7 @@ import ch.toroag.nexis.worker.ui.login.LoginScreen
 import ch.toroag.nexis.worker.ui.memories.MemoriesScreen
 import ch.toroag.nexis.worker.ui.schedules.SchedulesScreen
 import ch.toroag.nexis.worker.ui.devices.DevicesScreen
+import ch.toroag.nexis.worker.ui.hypervisor.HypervisorScreen
 import ch.toroag.nexis.worker.ui.remote.RemoteScreen
 import ch.toroag.nexis.worker.ui.settings.SettingsScreen
 import ch.toroag.nexis.worker.ui.voice.VoiceScreen
@@ -215,13 +216,13 @@ private fun UpdateSplashScreen(state: StartupState) {
         horizontalAlignment   = Alignment.CenterHorizontally,
     ) {
         Text(
-            "NeXiS",
+            "NEXIS",
             style = MaterialTheme.typography.headlineLarge,
             color = NxOrange,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "nexis-worker",
+            "NX-WRK · BUILD 1.0.0",
             style = MaterialTheme.typography.labelSmall,
             color = NxFg2,
         )
@@ -337,7 +338,8 @@ private fun NexisApp(
                 onNavigateToMemories  = { navController.navigate("memories") },
                 onNavigateToHistory   = { navController.navigate("history") },
                 onNavigateToSchedules = { navController.navigate("schedules") },
-                onNavigateToDevices   = { navController.navigate("devices") },
+                onNavigateToDevices      = { navController.navigate("devices") },
+                onNavigateToHypervisor   = { navController.navigate("hypervisor") },
             )
         }
         composable("voice") {
@@ -364,6 +366,9 @@ private fun NexisApp(
         }
         composable("devices") {
             DevicesScreen(onBack = { navController.popBackStack() })
+        }
+        composable("hypervisor") {
+            HypervisorScreen(onBack = { navController.popBackStack() })
         }
     }
 }

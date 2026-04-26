@@ -22,6 +22,8 @@ import ch.toroag.nexis.desktop.ui.chat.ChatScreen
 import ch.toroag.nexis.desktop.ui.chat.ChatViewModel
 import ch.toroag.nexis.desktop.ui.devices.DevicesScreen
 import ch.toroag.nexis.desktop.ui.devices.DevicesViewModel
+import ch.toroag.nexis.desktop.ui.hypervisor.HypervisorScreen
+import ch.toroag.nexis.desktop.ui.hypervisor.HypervisorViewModel
 import ch.toroag.nexis.desktop.ui.history.HistoryScreen
 import ch.toroag.nexis.desktop.ui.history.HistoryViewModel
 import ch.toroag.nexis.desktop.ui.login.LoginScreen
@@ -44,13 +46,14 @@ enum class Screen(
     val label: String,
     val icon:  ImageVector,
 ) {
-    Chat      ("chat",      Icons.Default.Chat),
-    Remote    ("remote",    Icons.Default.Computer),
-    Memories  ("memories",  Icons.Default.Psychology),
-    History   ("history",   Icons.Default.History),
-    Schedules ("schedules", Icons.Default.Schedule),
-    Devices   ("devices",   Icons.Default.Devices),
-    Settings  ("settings",  Icons.Default.Settings),
+    Chat       ("chat",       Icons.Default.Chat),
+    Remote     ("remote",     Icons.Default.Computer),
+    Memories   ("memories",   Icons.Default.Psychology),
+    History    ("history",    Icons.Default.History),
+    Schedules  ("schedules",  Icons.Default.Schedule),
+    Devices    ("devices",    Icons.Default.Devices),
+    Hypervisor ("hypervisor", Icons.Default.Dns),
+    Settings   ("settings",   Icons.Default.Settings),
 }
 
 fun main() = application {
@@ -73,13 +76,13 @@ fun main() = application {
         onCloseRequest = {
             if (SystemTrayManager.isSupported) {
                 isVisible = false
-                SystemTrayManager.notify("NeXiS", "Running in background — click the tray icon to reopen")
+                SystemTrayManager.notify("Nexis", "Running in background — click the tray icon to reopen")
             } else {
                 SystemTrayManager.remove()
                 exitApplication()
             }
         },
-        title       = "NeXiS Worker",
+        title       = "Nexis Worker",
         state       = windowState,
         visible     = isVisible,
         undecorated = true,
@@ -139,7 +142,7 @@ fun main() = application {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "NeXiS Worker",
+                            "NEXIS WORKER  ·  NX-WRK · BUILD 1.0.0",
                             style = MaterialTheme.typography.labelMedium,
                             color = NxFg2,
                             modifier = Modifier.weight(1f),
@@ -196,13 +199,14 @@ private fun App() {
 @Composable
 private fun MainShell(onLogout: () -> Unit) {
     // Hoist all VMs here so they survive navigation
-    val chatVm      = remember { ChatViewModel() }
-    val remoteVm    = remember { RemoteViewModel() }
-    val devicesVm   = remember { DevicesViewModel() }
-    val settingsVm  = remember { SettingsViewModel() }
-    val memoryVm    = remember { MemoryViewModel() }
-    val historyVm   = remember { HistoryViewModel() }
-    val schedulesVm = remember { SchedulesViewModel() }
+    val chatVm       = remember { ChatViewModel() }
+    val remoteVm     = remember { RemoteViewModel() }
+    val devicesVm    = remember { DevicesViewModel() }
+    val settingsVm   = remember { SettingsViewModel() }
+    val memoryVm     = remember { MemoryViewModel() }
+    val historyVm    = remember { HistoryViewModel() }
+    val schedulesVm  = remember { SchedulesViewModel() }
+    val hypervisorVm = remember { HypervisorViewModel() }
 
     var currentScreen by remember { mutableStateOf(Screen.Chat) }
 
@@ -221,7 +225,7 @@ private fun MainShell(onLogout: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "NeXiS",
+                        "NEXIS",
                         style  = MaterialTheme.typography.titleLarge,
                         color  = NxOrange,
                     )
@@ -246,13 +250,14 @@ private fun MainShell(onLogout: () -> Unit) {
         // ── Content ────────────────────────────────────────────────────────────
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when (currentScreen) {
-                Screen.Chat      -> ChatScreen(vm = chatVm)
-                Screen.Remote    -> RemoteScreen(vm = remoteVm)
-                Screen.Memories  -> MemoryScreen(vm = memoryVm)
-                Screen.History   -> HistoryScreen(vm = historyVm)
-                Screen.Schedules -> SchedulesScreen(vm = schedulesVm)
-                Screen.Devices   -> DevicesScreen(vm = devicesVm)
-                Screen.Settings  -> SettingsScreen(
+                Screen.Chat       -> ChatScreen(vm = chatVm)
+                Screen.Remote     -> RemoteScreen(vm = remoteVm)
+                Screen.Memories   -> MemoryScreen(vm = memoryVm)
+                Screen.History    -> HistoryScreen(vm = historyVm)
+                Screen.Schedules  -> SchedulesScreen(vm = schedulesVm)
+                Screen.Devices    -> DevicesScreen(vm = devicesVm)
+                Screen.Hypervisor -> HypervisorScreen(vm = hypervisorVm)
+                Screen.Settings   -> SettingsScreen(
                     vm       = settingsVm,
                     onLogout = onLogout,
                 )
