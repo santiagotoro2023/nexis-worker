@@ -164,10 +164,11 @@ private fun HvVmCard(
     onReboot: () -> Unit, onForceStop: () -> Unit,
 ) {
     val running = vm.status == "running"
+    val errorColor = MaterialTheme.colorScheme.error
     val statusColor = when (vm.status) {
         "running" -> NxGreen
-        "stopped" -> NxRed
-        "paused"  -> NxYellow
+        "stopped" -> errorColor
+        "paused"  -> NxOrangeDim
         else      -> NxFg2
     }
     Surface(color = NxBg3, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
@@ -208,7 +209,7 @@ private fun HvVmCard(
                     }
                     OutlinedButton(onClick = onForceStop,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NxRed)) {
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                         Text("FORCE STOP", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
                     }
                 }
