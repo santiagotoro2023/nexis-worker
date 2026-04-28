@@ -121,7 +121,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Nexis Worker ${{ env.NEXIS_VERSION }}"
+          tag_name: ${{ env.NEXIS_VERSION }}
+          name: "NeXiS Worker ${{ env.NEXIS_VERSION }}"
           body_path: notes.md
           files: |
             nexis-worker-${{ steps.ver.outputs.version }}.apk
