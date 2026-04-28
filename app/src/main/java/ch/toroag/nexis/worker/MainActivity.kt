@@ -5,6 +5,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import ch.toroag.nexis.worker.data.PreferencesRepository
 import ch.toroag.nexis.worker.ui.chat.ChatScreen
@@ -27,8 +30,10 @@ import ch.toroag.nexis.worker.ui.remote.RemoteScreen
 import ch.toroag.nexis.worker.ui.settings.SettingsScreen
 import ch.toroag.nexis.worker.ui.voice.VoiceScreen
 import ch.toroag.nexis.worker.ui.theme.NexisTheme
+import ch.toroag.nexis.worker.ui.theme.NexisEyeLogo
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxFg2
+import ch.toroag.nexis.worker.ui.theme.NxDim
 import ch.toroag.nexis.worker.service.NexisBackgroundService
 import ch.toroag.nexis.worker.util.UpdateChecker
 import kotlinx.coroutines.Dispatchers
@@ -286,6 +291,23 @@ private fun PermissionSetupScreen(onGrant: () -> Unit) {
     }
 }
 
+// ── Nav rail destinations ─────────────────────────────────────────────────────
+
+private data class NavRailItem(
+    val route: String,
+    val label: String,
+    val icon:  androidx.compose.ui.graphics.vector.ImageVector,
+)
+
+private val railItems = listOf(
+    NavRailItem("chat",       "chat",       Icons.Default.Chat),
+    NavRailItem("remote",     "remote",     Icons.Default.Computer),
+    NavRailItem("schedules",  "schedules",  Icons.Default.Schedule),
+    NavRailItem("devices",    "devices",    Icons.Default.Devices),
+    NavRailItem("hypervisor", "hypervisor", Icons.Default.Dns),
+    NavRailItem("settings",   "settings",   Icons.Default.Settings),
+)
+
 // ── Main app nav ──────────────────────────────────────────────────────────────
 
 @Composable
@@ -304,71 +326,133 @@ private fun NexisApp(
         else                 -> "login"
     }
 
-    NavHost(navController = navController, startDestination = startDest) {
-        composable("loading") {
-            // Momentary blank while DataStore resolves; token state updates will trigger recompose
-            Box(Modifier.fillMaxSize())
-        }
-        composable("login") {
-            LoginScreen(
-                onLoginSuccess = {
-                    navController.navigate("chat") {
-                        popUpTo("login") { inclusive = true }
-                    }
+    // Observe current route to highlight the rail
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute   = backStackEntry?.destination?.route
+
+    // Show rail only when logged in (not on login/loading screens)
+    val showRail = currentRoute != null && currentRoute != "login" && currentRoute != "loading"
+
+    Row(Modifier.fillMaxSize()) {
+        if (showRail) {
+            NavigationRail(
+                containerColor  = MaterialTheme.colorScheme.surface,
+                contentColor    = NxFg2,
+                header = {
+                    NexisEyeLogo(
+                        modifier = Modifier.size(28.dp).padding(top = 4.dp),
+                    )
+                },
+            ) {
+                railItems.forEach { item ->
+                    val selected = currentRoute == item.route ||
+                        (item.route == "chat" && currentRoute == "voice")
+                    NavigationRailItem(
+                        selected = selected,
+                        onClick  = {
+                            if (!selected) {
+                                navController.navigate(item.route) {
+                                    popUpTo("chat") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState    = true
+                                }
+                            }
+                        },
+                        icon  = {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
+                        label = {
+                            Text(
+                                item.label,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        },
+                        colors = NavigationRailItemDefaults.colors(
+                            selectedIconColor       = NxOrange,
+                            selectedTextColor       = NxOrange,
+                            indicatorColor          = NxDim,
+                            unselectedIconColor     = NxFg2,
+                            unselectedTextColor     = NxFg2,
+                        ),
+                    )
                 }
-            )
+            }
         }
-        composable("chat") {
-            ChatScreen(
-                onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToVoice    = { navController.navigate("voice") },
-                onNavigateToRemote   = { navController.navigate("remote") },
-                sharePayload         = sharePayload,
-                onShareConsumed      = onShareConsumed,
-            )
-        }
-        composable("settings") {
-            SettingsScreen(
-                onBack                = { navController.popBackStack() },
-                onLogout              = {
-                    navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
+
+        NavHost(
+            navController    = navController,
+            startDestination = startDest,
+            modifier         = Modifier.weight(1f).fillMaxHeight(),
+        ) {
+            composable("loading") {
+                // Momentary blank while DataStore resolves; token state updates will trigger recompose
+                Box(Modifier.fillMaxSize())
+            }
+            composable("login") {
+                LoginScreen(
+                    onLoginSuccess = {
+                        navController.navigate("chat") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
-                },
-                onNavigateToMemories  = { navController.navigate("memories") },
-                onNavigateToHistory   = { navController.navigate("history") },
-                onNavigateToSchedules = { navController.navigate("schedules") },
-                onNavigateToDevices      = { navController.navigate("devices") },
-                onNavigateToHypervisor   = { navController.navigate("hypervisor") },
-            )
-        }
-        composable("voice") {
-            VoiceScreen(onBack = { navController.popBackStack() })
-        }
-        composable("memories") {
-            MemoriesScreen(onBack = { navController.popBackStack() })
-        }
-        composable("history") {
-            HistoryScreen(
-                onBack          = { navController.popBackStack() },
-                onSessionLoaded = {
-                    navController.navigate("chat") {
-                        popUpTo("chat") { inclusive = true }
-                    }
-                },
-            )
-        }
-        composable("schedules") {
-            SchedulesScreen(onBack = { navController.popBackStack() })
-        }
-        composable("remote") {
-            RemoteScreen(onBack = { navController.popBackStack() })
-        }
-        composable("devices") {
-            DevicesScreen(onBack = { navController.popBackStack() })
-        }
-        composable("hypervisor") {
-            HypervisorScreen(onBack = { navController.popBackStack() })
+                )
+            }
+            composable("chat") {
+                ChatScreen(
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onNavigateToVoice    = { navController.navigate("voice") },
+                    onNavigateToRemote   = { navController.navigate("remote") },
+                    sharePayload         = sharePayload,
+                    onShareConsumed      = onShareConsumed,
+                )
+            }
+            composable("settings") {
+                SettingsScreen(
+                    onBack                = { navController.popBackStack() },
+                    onLogout              = {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onNavigateToMemories  = { navController.navigate("memories") },
+                    onNavigateToHistory   = { navController.navigate("history") },
+                    onNavigateToSchedules = { navController.navigate("schedules") },
+                    onNavigateToDevices      = { navController.navigate("devices") },
+                    onNavigateToHypervisor   = { navController.navigate("hypervisor") },
+                )
+            }
+            composable("voice") {
+                VoiceScreen(onBack = { navController.popBackStack() })
+            }
+            composable("memories") {
+                MemoriesScreen(onBack = { navController.popBackStack() })
+            }
+            composable("history") {
+                HistoryScreen(
+                    onBack          = { navController.popBackStack() },
+                    onSessionLoaded = {
+                        navController.navigate("chat") {
+                            popUpTo("chat") { inclusive = true }
+                        }
+                    },
+                )
+            }
+            composable("schedules") {
+                SchedulesScreen(onBack = { navController.popBackStack() })
+            }
+            composable("remote") {
+                RemoteScreen(onBack = { navController.popBackStack() })
+            }
+            composable("devices") {
+                DevicesScreen(onBack = { navController.popBackStack() })
+            }
+            composable("hypervisor") {
+                HypervisorScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }

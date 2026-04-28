@@ -39,6 +39,7 @@ import ch.toroag.nexis.desktop.ui.settings.SettingsScreen
 import ch.toroag.nexis.desktop.ui.settings.SettingsViewModel
 import ch.toroag.nexis.desktop.ui.theme.NexisTheme
 import ch.toroag.nexis.desktop.ui.theme.*
+import ch.toroag.nexis.desktop.ui.theme.NexisEyeLogo
 import ch.toroag.nexis.desktop.util.SystemTrayManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -225,11 +226,12 @@ private fun MainShell(onLogout: () -> Unit) {
                     Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        "NEXIS",
-                        style  = MaterialTheme.typography.titleLarge,
-                        color  = NxOrange,
-                    )
+                    NexisEyeLogo(modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("NEXIS", style = MaterialTheme.typography.labelLarge, color = NxOrange)
+                        Text("WORKER", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    }
                 }
 
                 HorizontalDivider(color = NxBorder, thickness = 0.5.dp)

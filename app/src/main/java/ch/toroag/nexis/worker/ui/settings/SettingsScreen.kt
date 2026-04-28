@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -26,6 +27,10 @@ import ch.toroag.nexis.worker.ui.theme.NxFg
 import ch.toroag.nexis.worker.ui.theme.NxFg2
 import ch.toroag.nexis.worker.ui.theme.NxOrange
 import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
+import ch.toroag.nexis.worker.util.UpdateChecker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +52,13 @@ fun SettingsScreen(
     val haConfig      by vm.haConfig.collectAsState()
     val haTestResult  by vm.haTestResult.collectAsState()
     val haTestLoading by vm.haTestLoading.collectAsState()
+
+    val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
+
+    var updateState    by remember { mutableStateOf<String?>(null) }
+    var updateChecking by remember { mutableStateOf(false) }
+    var updateRelease  by remember { mutableStateOf<UpdateChecker.Release?>(null) }
 
     var reAuthPw by remember { mutableStateOf("") }
 
@@ -316,6 +328,100 @@ fun SettingsScreen(
 
             if (status != null) {
                 Text(status!!, color = NxOrange, style = MaterialTheme.typography.bodySmall)
+            }
+
+            // App update section
+            SettingsCard(label = "app update") {
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
+                ) {
+                    Button(
+                        onClick  = {
+                            scope.launch {
+                                updateChecking = true
+                                updateState    = null
+                                updateRelease  = null
+                                val release = withContext(Dispatchers.IO) {
+                                    UpdateChecker.checkForUpdate()
+                                }
+                                updateRelease  = release
+                                updateState    = if (release == null) "up to date"
+                                                 else "update available: ${release.tag}"
+                                updateChecking = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(36.dp),
+                        enabled  = !updateChecking,
+                        shape    = RoundedCornerShape(4.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = NxOrangeDim,
+                            contentColor   = MaterialTheme.colorScheme.background,
+                        ),
+                    ) {
+                        if (updateChecking) {
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(14.dp),
+                                color       = MaterialTheme.colorScheme.background,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text(
+                                "CHECK FOR UPDATE",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                }
+                if (updateState != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        updateState!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (updateRelease != null) NxOrange else NxFg2,
+                    )
+                }
+                if (updateRelease != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick  = {
+                            val release = updateRelease ?: return@Button
+                            scope.launch {
+                                updateChecking = true
+                                updateState    = "downloading…"
+                                val apk = withContext(Dispatchers.IO) {
+                                    UpdateChecker.downloadApk(context, release) { pct ->
+                                        scope.launch(Dispatchers.Main) {
+                                            updateState = "downloading… $pct%"
+                                        }
+                                    }
+                                }
+                                if (apk != null) {
+                                    updateState = "installing…"
+                                    withContext(Dispatchers.IO) {
+                                        runCatching { UpdateChecker.installSilently(context, apk) }
+                                    }
+                                } else {
+                                    updateState = "download failed"
+                                }
+                                updateChecking = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(36.dp),
+                        enabled  = !updateChecking,
+                        shape    = RoundedCornerShape(4.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = NxOrange,
+                            contentColor   = MaterialTheme.colorScheme.background,
+                        ),
+                    ) {
+                        Text(
+                            "DOWNLOAD & INSTALL",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(16.dp))
