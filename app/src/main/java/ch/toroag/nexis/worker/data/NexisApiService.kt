@@ -712,16 +712,20 @@ class NexisApiService(
         standardClient.newCall(req).execute().use { it.isSuccessful }
     } catch (e: Exception) { false }
 
-    // ── Hypervisor API (routed through controller proxy) ─────────────────────
+    // ── Hypervisor data classes ───────────────────────────────────────────────
+
+    data class HvNode(val id: String, val name: String, val url: String)
 
     data class HvVm(
         val id: String, val name: String, val status: String,
         val vcpus: Int, val memoryMb: Long,
+        val nodeId: String = "", val nodeName: String = "",
     )
 
     data class HvContainer(
         val name: String, val status: String,
         val memoryMb: Long, val cpus: Int,
+        val nodeId: String = "", val nodeName: String = "",
     )
 
     data class HvMetrics(
@@ -729,6 +733,83 @@ class NexisApiService(
         val vmsTotal: Int, val vmsActive: Int,
         val ctsTotal: Int, val ctsActive: Int,
     )
+
+    // ── Controller-proxied hypervisor API ─────────────────────────────────────
+
+    fun listHypNodes(baseUrl: String, token: String): List<HvNode> = try {
+        val req = Request.Builder().url("$baseUrl/api/hyp/nodes").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val text = resp.body!!.string()
+            val arr  = try { org.json.JSONArray(text) }
+                       catch (e: Exception) { org.json.JSONObject(text).optJSONArray("nodes") ?: return emptyList() }
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                HvNode(o.optString("id"), o.optString("name"), o.optString("url"))
+            }
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun listHypVms(baseUrl: String, token: String): List<HvVm> = try {
+        val req = Request.Builder().url("$baseUrl/api/hyp/vms").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val text = resp.body!!.string()
+            val arr  = try { org.json.JSONArray(text) }
+                       catch (e: Exception) { org.json.JSONObject(text).optJSONArray("vms") ?: return emptyList() }
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                HvVm(
+                    id       = o.optString("id"),
+                    name     = o.optString("name"),
+                    status   = o.optString("status", "unknown"),
+                    vcpus    = o.optInt("vcpus", 1),
+                    memoryMb = o.optLong("memory_mb", 0),
+                    nodeId   = o.optString("node_id"),
+                    nodeName = o.optString("node_name"),
+                )
+            }
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun listHypContainers(baseUrl: String, token: String): List<HvContainer> = try {
+        val req = Request.Builder().url("$baseUrl/api/hyp/containers").withBearer(token).get().build()
+        standardClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val text = resp.body!!.string()
+            val arr  = try { org.json.JSONArray(text) }
+                       catch (e: Exception) { org.json.JSONObject(text).optJSONArray("containers") ?: return emptyList() }
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                HvContainer(
+                    name     = o.optString("name"),
+                    status   = o.optString("status", "unknown"),
+                    memoryMb = o.optLong("memory_mb", 0),
+                    cpus     = o.optInt("cpus", 1),
+                    nodeId   = o.optString("node_id"),
+                    nodeName = o.optString("node_name"),
+                )
+            }
+        }
+    } catch (e: Exception) { emptyList() }
+
+    fun hypVmAction(baseUrl: String, token: String, nodeId: String, vmId: String, action: String): Boolean = try {
+        val req = Request.Builder()
+            .url("$baseUrl/api/hyp/nodes/$nodeId/vms/$vmId/$action")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .withBearer(token).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
+
+    fun hypContainerAction(baseUrl: String, token: String, nodeId: String, ctName: String, action: String): Boolean = try {
+        val req = Request.Builder()
+            .url("$baseUrl/api/hv/containers/$ctName/$action")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .withBearer(token).build()
+        standardClient.newCall(req).execute().use { it.isSuccessful }
+    } catch (e: Exception) { false }
+
+    // ── Legacy direct hypervisor methods (kept for backward compat) ───────────
 
     fun getHvToken(hvUrl: String, username: String, password: String): String {
         val body = JSONObject().put("username", username).put("password", password).toString()
@@ -740,57 +821,6 @@ class NexisApiService(
             return JSONObject(text).getString("token")
         }
     }
-
-    fun listHvVms(hvUrl: String, hvToken: String): List<HvVm> = try {
-        val req = Request.Builder().url("$hvUrl/api/vms").withBearer(hvToken).get().build()
-        standardClient.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) return emptyList()
-            val arr = JSONObject(resp.body!!.string()).getJSONArray("vms")
-            (0 until arr.length()).map {
-                val o = arr.getJSONObject(it)
-                HvVm(o.getString("id"), o.getString("name"), o.optString("status", "unknown"),
-                     o.optInt("vcpus", 1), o.optLong("memory_mb", 0))
-            }
-        }
-    } catch (e: Exception) { emptyList() }
-
-    fun hvVmAction(hvUrl: String, hvToken: String, vmId: String, action: String): Boolean = try {
-        val req = Request.Builder().url("$hvUrl/api/vms/$vmId/$action")
-            .post("{}".toRequestBody("application/json".toMediaType()))
-            .withBearer(hvToken).build()
-        standardClient.newCall(req).execute().use { it.isSuccessful }
-    } catch (e: Exception) { false }
-
-    fun listHvContainers(hvUrl: String, hvToken: String): List<HvContainer> = try {
-        val req = Request.Builder().url("$hvUrl/api/containers").withBearer(hvToken).get().build()
-        standardClient.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) return emptyList()
-            val arr = JSONObject(resp.body!!.string()).getJSONArray("containers")
-            (0 until arr.length()).map {
-                val o = arr.getJSONObject(it)
-                HvContainer(o.getString("name"), o.optString("status", "unknown"),
-                            o.optLong("memory_mb", 0), o.optInt("cpus", 1))
-            }
-        }
-    } catch (e: Exception) { emptyList() }
-
-    fun hvContainerAction(hvUrl: String, hvToken: String, ctName: String, action: String): Boolean = try {
-        val req = Request.Builder().url("$hvUrl/api/containers/$ctName/$action")
-            .post("{}".toRequestBody("application/json".toMediaType()))
-            .withBearer(hvToken).build()
-        standardClient.newCall(req).execute().use { it.isSuccessful }
-    } catch (e: Exception) { false }
-
-    fun getHvMetrics(hvUrl: String, hvToken: String): HvMetrics? = try {
-        val req = Request.Builder().url("$hvUrl/api/metrics").withBearer(hvToken).get().build()
-        standardClient.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) return null
-            val o = JSONObject(resp.body!!.string())
-            HvMetrics(o.optDouble("cpu", 0.0), o.optDouble("mem", 0.0), o.optDouble("disk", 0.0),
-                      o.optInt("vms_total", 0), o.optInt("vms_active", 0),
-                      o.optInt("cts_total", 0), o.optInt("cts_active", 0))
-        }
-    } catch (e: Exception) { null }
 
     fun hvCommand(hvUrl: String, hvToken: String, command: String): String = try {
         val body = JSONObject().put("command", command).toString()

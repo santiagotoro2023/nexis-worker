@@ -1,139 +1,108 @@
-# Nexis Worker
+# NeXiS Worker
 
-Client apps for [nexis-controller](https://github.com/santiagotoro2023/nexis-controller) -- Android and Linux desktop. Streaming chat, voice I/O, file and image attachments, desktop automation, hypervisor node control, real-time cross-device sync.
-
-Part of the Nexis ecosystem alongside [nexis-controller](https://github.com/santiagotoro2023/nexis-controller) and [nexis-hypervisor](https://github.com/santiagotoro2023/nexis-hypervisor).
+Client applications for the NeXiS ecosystem. Available for Android (8.0+) and Linux desktop. Connects to a NeXiS Controller to provide a portable AI assistant interface, device remote control, and VM management from anywhere.
 
 ---
 
-## Install
+## Ecosystem
 
-### Android
+```
+┌──────────────────────────────────────────────────────────────┐
+│  NeXiS Controller   — authentication · AI · management plane │
+│    ↕ SSO / Bearer token                                       │
+│  NeXiS Worker       — you are here · mobile + desktop client │
+└──────────────────────────────────────────────────────────────┘
+```
 
-1. Go to [Releases](https://github.com/santiagotoro2023/nexis-worker/releases/latest)
-2. Download `nexis-worker-X.X.X.apk`
-3. Open it on your phone -- allow "install unknown apps" when prompted
-4. On first launch complete the setup wizard
+| Repo | Role |
+|------|------|
+| [nexis-controller](https://github.com/santiagotoro2023/nexis-controller) | Central intelligence layer · SSO provider |
+| [nexis-hypervisor](https://github.com/santiagotoro2023/nexis-hypervisor) | Per-node VM and container management |
+| **nexis-worker** | Android and desktop client — you are here |
 
-The app checks for updates on every launch and installs them silently.
-
-### Linux Desktop (Debian/Ubuntu)
-
-1. Go to [Releases](https://github.com/santiagotoro2023/nexis-worker/releases/latest)
-2. Download `nexis-worker-desktop_X.X.X_amd64.deb`
-3. `sudo dpkg -i nexis-worker-desktop_X.X.X_amd64.deb`
-4. Launch from the app menu or run `nexis-worker-desktop`
-
-Bundles its own JVM -- no Java installation needed.
+Workers connect directly to the Controller. All paired hypervisor nodes are accessible through the Controller's proxy — no separate credentials per hypervisor node.
 
 ---
 
-## First Launch
+## Capabilities
 
-A setup wizard guides you through connecting to the Nexis Controller and optionally a Nexis Hypervisor node. You can also connect later from Settings.
+**AI Interface**
+- Real-time conversation with the Controller's local LLM (Ollama)
+- Streaming responses with optional voice output (TTS) and voice input (STT)
+- Persistent conversation history synced across all Worker devices
 
-**Controller URL** -- e.g. `https://nexis.yourdomain.com:8443`
-**Password** -- your controller password
+**Hypervisors**
+- View all VMs and containers across every paired hypervisor node
+- Start, stop, reboot, and force-stop VMs directly from the app
+- Status indicators (running / stopped / paused) with per-VM resource chips
 
-On connect the app exchanges the password for a persistent Bearer token and pins the server TLS certificate (TOFU). Self-signed certs are fully supported.
+**Device & Ecosystem Control**
+- Remote desktop actions on other connected Worker clients
+- View live resource metrics from all paired NeXiS Hypervisor nodes
 
----
-
-## Features
-
-### Chat
-
-Type or speak. Responses stream token-by-token. History stays in sync across CLI, web, Android, and desktop in real time.
-
-Attach images and files via the paperclip. Images go to the vision model; documents are sent as text context.
-
-### Voice
-
-Tap the mic to dictate. Tap the speaker to enable TTS. Only the device that sent the message plays audio.
-
-### Remote Control
-
-Send commands to the controller PC:
-
-| Action | Description |
-|---|---|
-| Screenshot | Capture and analyse the desktop |
-| Open app / URL | Launch on the controller |
-| Volume / Media | Playback control |
-| Clipboard | Read or write |
-| Notify | Desktop notification |
-| Lock / Sleep | Lock screen or suspend |
-| Wake-on-LAN | Wake a device by MAC address |
-
-### Hypervisor Node
-
-If a Nexis Hypervisor node is connected to the controller, the Hypervisor screen shows:
-
-- Live CPU, RAM, disk, VM count, container count from the node
-- VM list with start / stop / reboot controls
-- Container list with start / stop / restart controls
-- Command relay -- natural language commands sent directly to the hypervisor
-
-### Device Inventory
-
-Browse all devices registered to the controller (worker devices and hypervisor nodes) with online status and hardware info.
-
-### Schedules, Memory, History
-
-View and manage controller schedules, persistent memories, and past chat sessions from the app.
+**Automation**
+- View and trigger scheduled tasks defined on the Controller
+- Real-time notifications for alarms and events
 
 ---
 
-## Android-specific
+## Platforms
 
-**Background sync** -- a foreground service keeps the SSE connection alive. Notifications fire for new AI replies and system monitor alerts.
-
-**Wake word** -- Settings -> toggle "hey nexis". On-device detection via Sherpa-ONNX (~15 MB model, downloads automatically).
-
-**Share to Nexis** -- share any text or image from another app directly into the chat.
-
----
-
-## Desktop-specific
-
-**System tray** -- closing the window hides to tray. Right-click to reopen or quit.
-
-**Auto-update** -- Settings -> App update. Downloads and installs new .deb releases via pkexec.
+| Platform | Format | Requirements |
+|----------|--------|--------------|
+| Android | APK (sideload) | Android 8.0+ |
+| Linux desktop | `.deb` | Debian 12 / Ubuntu 22.04+ · x86_64 |
 
 ---
 
-## Requirements
-
-**Android:** 8.0+ (API 26), microphone permission, "install unknown apps" for auto-update
-**Desktop:** Debian/Ubuntu x86-64, `xdotool` + `wmctrl` for full desktop automation
-
-Both require a running [nexis-controller](https://github.com/santiagotoro2023/nexis-controller).
-
----
-
-## Versioning
-
-`NX-WRK · BUILD 1.0.0` (Android) / `NX-WRK-DT · BUILD 1.0.0` (Desktop) -- tags follow `vMAJOR.MINOR.PATCH`.
-
-## Releases
-
-Each tagged release produces:
-
-- `nexis-worker-X.X.X.apk` -- Android APK
-- `nexis-worker-desktop_X.X.X_amd64.deb` -- Linux desktop Debian package
-
-### Required GitHub Secrets
-
-| Secret | Value |
-|---|---|
-| `KEYSTORE_BASE64` | Base64-encoded `.jks` keystore |
-| `KEYSTORE_PASSWORD` | Keystore password |
-| `KEY_ALIAS` | Key alias (e.g. `nexis`) |
-| `KEY_PASSWORD` | Key password |
+## Building
 
 ```bash
-keytool -genkeypair -keystore nexis-release.jks -storetype JKS \
-  -alias nexis -keyalg RSA -keysize 2048 -validity 36500 \
-  -dname "CN=Nexis, O=nexis, C=CH"
-base64 nexis-release.jks   # paste into KEYSTORE_BASE64 secret
+git clone https://github.com/santiagotoro2023/nexis-worker
+cd nexis-worker
 ```
+
+**Android APK:**
+```bash
+./gradlew :app:assembleRelease
+# Output: app/build/outputs/apk/release/app-release.apk
+```
+
+**Linux desktop `.deb`:**
+```bash
+./gradlew :desktopApp:packageDeb
+# Output: desktopApp/build/compose/binaries/main/deb/nexis-worker-desktop_*.deb
+```
+
+---
+
+## Setup
+
+1. Install or sideload the app
+2. Open the app — enter your NeXiS Controller URL (e.g. `https://192.168.1.10:8443`)
+3. Accept the self-signed certificate on first connection
+4. Enter your Controller username and password
+5. The app registers itself as a device — it appears in the Controller's **Devices** panel
+
+No per-hypervisor setup. All VMs from all paired nodes appear in the **Hypervisors** tab via the Controller.
+
+---
+
+## Connection
+
+- **Protocol:** HTTPS with TOFU (Trust On First Use) TLS — accepts self-signed certificates
+- **Auth:** Bearer token, 90-day TTL
+- **Realtime:** Server-Sent Events for conversation sync and notifications
+- **Timeout:** 300 s for streaming endpoints, 30 s for standard requests
+
+---
+
+## Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Android app | Kotlin · Android SDK 26+ |
+| Desktop app | Kotlin · Compose Multiplatform · Material 3 |
+| Build system | Gradle 8.9 · AGP 8.7.3 |
+| Networking | OkHttp · custom TOFU TLS |
+| Storage | Android DataStore / JVM preferences |

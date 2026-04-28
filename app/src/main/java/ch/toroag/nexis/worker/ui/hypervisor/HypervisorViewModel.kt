@@ -19,25 +19,23 @@ class HypervisorViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _vms        = MutableStateFlow<List<NexisApiService.HvVm>>(emptyList())
     private val _containers = MutableStateFlow<List<NexisApiService.HvContainer>>(emptyList())
-    private val _metrics    = MutableStateFlow<NexisApiService.HvMetrics?>(null)
-    private val _cmdResult  = MutableStateFlow("")
+    private val _nodes      = MutableStateFlow<List<NexisApiService.HvNode>>(emptyList())
     private val _error      = MutableStateFlow("")
     private val _loading    = MutableStateFlow(false)
-    private val _configured = MutableStateFlow(false)
+    private val _connected  = MutableStateFlow(false)
 
-    val vms:        StateFlow<List<NexisApiService.HvVm>>        = _vms
+    val vms:       StateFlow<List<NexisApiService.HvVm>>       = _vms
     val containers: StateFlow<List<NexisApiService.HvContainer>> = _containers
-    val metrics:    StateFlow<NexisApiService.HvMetrics?>        = _metrics
-    val cmdResult:  StateFlow<String>                            = _cmdResult
-    val error:      StateFlow<String>                            = _error
-    val loading:    StateFlow<Boolean>                           = _loading
-    val configured: StateFlow<Boolean>                          = _configured
+    val nodes:     StateFlow<List<NexisApiService.HvNode>>     = _nodes
+    val error:     StateFlow<String>                           = _error
+    val loading:   StateFlow<Boolean>                          = _loading
+    val connected: StateFlow<Boolean>                          = _connected
 
     init {
         viewModelScope.launch {
-            prefs.hvUrl.combine(prefs.hvToken) { url, tok -> url to tok }.collect { (url, tok) ->
-                _configured.value = url.isNotEmpty() && tok.isNotEmpty()
-                if (_configured.value) refresh()
+            prefs.baseUrl.combine(prefs.token) { url, tok -> url to tok }.collect { (url, tok) ->
+                _connected.value = url.isNotEmpty() && tok.isNotEmpty()
+                if (_connected.value) refresh()
             }
         }
     }
@@ -46,13 +44,13 @@ class HypervisorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true
             _error.value   = ""
-            val url = prefs.hvUrl.first()
-            val tok = prefs.hvToken.first()
-            if (url.isEmpty() || tok.isEmpty()) { _loading.value = false; return@launch }
+            val baseUrl = prefs.baseUrl.first()
+            val token   = prefs.token.first()
+            if (baseUrl.isEmpty() || token.isEmpty()) { _loading.value = false; return@launch }
             try {
-                _metrics.value    = api.getHvMetrics(url, tok)
-                _vms.value        = api.listHvVms(url, tok)
-                _containers.value = api.listHvContainers(url, tok)
+                _nodes.value      = api.listHypNodes(baseUrl, token)
+                _vms.value        = api.listHypVms(baseUrl, token)
+                _containers.value = api.listHypContainers(baseUrl, token)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Connection error"
             } finally {
@@ -61,47 +59,29 @@ class HypervisorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun vmAction(vmId: String, action: String) {
+    fun vmAction(nodeId: String, vmId: String, action: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val url = prefs.hvUrl.first()
-            val tok = prefs.hvToken.first()
-            api.hvVmAction(url, tok, vmId, action)
-            refresh()
-        }
-    }
-
-    fun containerAction(ctName: String, action: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val url = prefs.hvUrl.first()
-            val tok = prefs.hvToken.first()
-            api.hvContainerAction(url, tok, ctName, action)
-            refresh()
-        }
-    }
-
-    fun sendCommand(command: String) {
-        if (command.isBlank()) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _cmdResult.value = "Processing..."
-            val url = prefs.hvUrl.first()
-            val tok = prefs.hvToken.first()
-            _cmdResult.value = api.hvCommand(url, tok, command)
-        }
-    }
-
-    fun connect(hvUrl: String, username: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
+            val baseUrl = prefs.baseUrl.first()
+            val token   = prefs.token.first()
             try {
-                val tok = api.getHvToken(hvUrl, username, password)
-                prefs.saveHvCredentials(hvUrl, tok)
-                launch(Dispatchers.Main) { onSuccess() }
+                api.hypVmAction(baseUrl, token, nodeId, vmId, action)
+                refresh()
             } catch (e: Exception) {
-                launch(Dispatchers.Main) { onError(e.message ?: "Connection failed") }
+                _error.value = e.message ?: "Action failed"
             }
         }
     }
 
-    fun disconnect() {
-        viewModelScope.launch { prefs.clearHvToken() }
+    fun containerAction(nodeId: String, ctName: String, action: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val baseUrl = prefs.baseUrl.first()
+            val token   = prefs.token.first()
+            try {
+                api.hypContainerAction(baseUrl, token, nodeId, ctName, action)
+                refresh()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Action failed"
+            }
+        }
     }
 }
