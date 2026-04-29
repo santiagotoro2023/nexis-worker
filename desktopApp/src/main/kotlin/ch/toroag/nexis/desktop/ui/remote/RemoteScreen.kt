@@ -11,7 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import ch.toroag.nexis.desktop.ui.theme.*
 import kotlin.math.roundToInt
@@ -51,7 +53,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("remote control", style = MaterialTheme.typography.titleMedium, color = NxFg)
+        Text("remote control", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NxFg)
 
         // ── Target device ──────────────────────────────────────────────────────
         RemoteSection("target device") {
@@ -68,13 +70,13 @@ fun RemoteScreen(vm: RemoteViewModel) {
                         devicesLoading -> {
                             CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
-                            Text("loading…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                            Text("loading…", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                         }
                         selectedDevice != null -> {
                             val dev = selectedDevice!!
                             Text(if (dev.online) "●" else "○",
                                  color = if (dev.online) NxGreen else NxFg2,
-                                 style = MaterialTheme.typography.bodySmall)
+                                 fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                             Spacer(Modifier.width(6.dp))
                             Icon(
                                 when (dev.deviceType) {
@@ -84,16 +86,16 @@ fun RemoteScreen(vm: RemoteViewModel) {
                                 },
                                 null, Modifier.size(14.dp), tint = NxFg2)
                             Spacer(Modifier.width(6.dp))
-                            Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
+                            Text(dev.hostname, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg)
                             dev.role?.let {
                                 Spacer(Modifier.width(6.dp))
-                                Text("[$it]", style = MaterialTheme.typography.labelSmall, color = NxOrangeDim)
+                                Text("[$it]", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrangeDim)
                             }
                             Spacer(Modifier.weight(1f))
                             Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp), tint = NxFg2)
                         }
                         else -> {
-                            Text("no devices", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                            Text("no devices", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                             Spacer(Modifier.weight(1f))
                             Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp), tint = NxFg2)
                         }
@@ -106,7 +108,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(if (dev.online) "●" else "○",
                                          color = if (dev.online) NxGreen else NxFg2,
-                                         style = MaterialTheme.typography.bodySmall)
+                                         fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                                     Spacer(Modifier.width(6.dp))
                                     Icon(
                                         when (dev.deviceType) {
@@ -117,10 +119,10 @@ fun RemoteScreen(vm: RemoteViewModel) {
                                         null, Modifier.size(14.dp), tint = NxFg2)
                                     Spacer(Modifier.width(8.dp))
                                     Column {
-                                        Text(dev.hostname, style = MaterialTheme.typography.bodyMedium, color = NxFg)
+                                        Text(dev.hostname, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg)
                                         if (dev.deviceType != "homelab")
                                             Text("${dev.os}${dev.role?.let { " · [$it]" } ?: ""}",
-                                                 style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                                                 fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                                     }
                                 }
                             },
@@ -137,12 +139,12 @@ fun RemoteScreen(vm: RemoteViewModel) {
                            contentPadding = PaddingValues(horizontal = 4.dp)) {
                     Icon(Icons.Default.Info, null, Modifier.size(12.dp), tint = NxFg2)
                     Spacer(Modifier.width(4.dp))
-                    Text("probe", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    Text("probe", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                 }
                 TextButton(onClick = { vm.loadDevices() }, contentPadding = PaddingValues(horizontal = 4.dp)) {
                     Icon(Icons.Default.Refresh, null, Modifier.size(12.dp), tint = NxFg2)
                     Spacer(Modifier.width(4.dp))
-                    Text("refresh", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    Text("refresh", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                 }
             }
         }
@@ -154,7 +156,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     label = { Text("app name or URL", color = NxFg2) },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     shape = RoundedCornerShape(4.dp), colors = nxFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RemoteButton("open",  Icons.Default.OpenInNew, Modifier.weight(1f), appInput.isNotBlank() && !isLoading) { vm.action("open", appInput.trim()) }
@@ -186,7 +188,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                         valueRange = 0f..100f, modifier = Modifier.weight(1f),
                         colors = SliderDefaults.colors(thumbColor = NxOrange, activeTrackColor = NxOrange, inactiveTrackColor = NxBorder))
                     Icon(Icons.Default.VolumeUp, null, Modifier.size(18.dp), tint = NxFg2)
-                    Text("${volumeSlider.roundToInt()}%", style = MaterialTheme.typography.labelSmall,
+                    Text("${volumeSlider.roundToInt()}%", fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                          color = NxFg2, modifier = Modifier.widthIn(min = 36.dp))
                 }
                 Spacer(Modifier.height(4.dp))
@@ -201,7 +203,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     label = { Text("text to copy to PC", color = NxFg2) },
                     modifier = Modifier.fillMaxWidth(), maxLines = 3,
                     shape = RoundedCornerShape(4.dp), colors = nxFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
                 Spacer(Modifier.height(8.dp))
                 RemoteButton("copy to PC clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
                     clipboardInput.isNotBlank() && !isLoading) { vm.action("clip", clipboardInput.trim()) }
@@ -212,7 +214,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     label = { Text("notification text", color = NxFg2) },
                     modifier = Modifier.fillMaxWidth(), maxLines = 2,
                     shape = RoundedCornerShape(4.dp), colors = nxFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
                 Spacer(Modifier.height(8.dp))
                 RemoteButton("send to PC", Icons.Default.Notifications, Modifier.fillMaxWidth(),
                     notifyInput.isNotBlank() && !isLoading) { vm.action("notify", notifyInput.trim()) }
@@ -246,7 +248,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
             if (isOffline) {
                 RemoteSection("device offline") {
                     Text("${selectedDevice?.hostname} is offline — commands queue and deliver when back online.",
-                         style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                         fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                 }
             }
 
@@ -263,7 +265,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     label = { Text("app name, package, or URL", color = NxFg2) },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     shape = RoundedCornerShape(4.dp), colors = nxFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RemoteButton("open URL", Icons.Default.OpenInNew, Modifier.weight(1f), urlInput.isNotBlank() && !isLoading) { vm.mobileCommand("open_url", urlInput.trim()) }
@@ -276,7 +278,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     label = { Text("text to copy to phone", color = NxFg2) },
                     modifier = Modifier.fillMaxWidth(), maxLines = 3,
                     shape = RoundedCornerShape(4.dp), colors = nxFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
                 Spacer(Modifier.height(8.dp))
                 RemoteButton("copy to phone clipboard", Icons.Default.ContentCopy, Modifier.fillMaxWidth(),
                     clipboardInput.isNotBlank() && !isLoading) { vm.mobileCommand("clip", clipboardInput.trim()) }
@@ -287,7 +289,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     label = { Text("notification text", color = NxFg2) },
                     modifier = Modifier.fillMaxWidth(), maxLines = 2,
                     shape = RoundedCornerShape(4.dp), colors = nxFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
                 Spacer(Modifier.height(8.dp))
                 RemoteButton("send notification", Icons.Default.Notifications, Modifier.fillMaxWidth(),
                     notifyInput.isNotBlank() && !isLoading) { vm.mobileCommand("notify", notifyInput.trim()) }
@@ -304,11 +306,11 @@ fun RemoteScreen(vm: RemoteViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text("working…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                        Text("working…", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                     }
                 } else {
                     Text(result,
-                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+                         fontFamily = FontFamily.Monospace, fontSize = 11.sp,
                          color = NxFg)
                 }
             }
@@ -320,7 +322,7 @@ fun RemoteScreen(vm: RemoteViewModel) {
 @Composable
 private fun RemoteSection(label: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = NxOrange,
+        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange,
              modifier = Modifier.padding(bottom = 6.dp))
         HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
         Spacer(Modifier.height(10.dp))
@@ -350,7 +352,7 @@ private fun RemoteButton(
     ) {
         Icon(icon, null, modifier = Modifier.size(16.dp), tint = if (enabled) NxOrange else NxFg2)
         Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
     }
 }
 
@@ -382,7 +384,7 @@ private fun HomelabSection(
             ) {
                 Icon(Icons.Default.PowerSettingsNew, null, Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("start homelab", style = MaterialTheme.typography.labelMedium)
+                Text("start homelab", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             }
             OutlinedButton(
                 onClick  = { onAction("stop") },
@@ -397,7 +399,7 @@ private fun HomelabSection(
             ) {
                 Icon(Icons.Default.PowerOff, null, Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("stop homelab", style = MaterialTheme.typography.labelMedium)
+                Text("stop homelab", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -413,21 +415,20 @@ private fun HomelabSection(
                     colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2,
                         disabledContentColor = NxFg2.copy(alpha = 0.4f)),
                     border   = androidx.compose.foundation.BorderStroke(0.5.dp, NxBorder),
-                ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                ) { Text(label, fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
             }
         }
         if (log.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            Text("activity log", style = MaterialTheme.typography.labelSmall, color = NxOrange)
+            Text("activity log", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrange)
             Spacer(Modifier.height(4.dp))
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 log.takeLast(12).forEach { entry ->
                     val t = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
                         .format(java.util.Date((entry.ts * 1000).toLong()))
                     Text("$t  ${entry.msg}",
-                         style = MaterialTheme.typography.labelSmall.copy(
-                             fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp),
-                         color = if (entry.msg.contains("error", ignoreCase = true)) MaterialTheme.colorScheme.error
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                         color = if (entry.msg.contains("error", ignoreCase = true)) NxRed
                                  else if (entry.msg.contains("✓")) NxOrange
                                  else NxFg2)
                 }
@@ -445,19 +446,19 @@ private fun HomelabSection(
                         "stopping" -> "stopping homelab…"
                         else       -> "working…"
                     }
-                    Text(seqLabel, style = MaterialTheme.typography.labelSmall, color = NxOrange)
+                    Text(seqLabel, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrange)
                 }
                 OutlinedButton(
                     onClick  = { onAction("abort") },
                     modifier = Modifier.height(32.dp),
                     shape    = RoundedCornerShape(4.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxRed),
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, NxRed.copy(alpha = 0.6f)),
                 ) {
                     Icon(Icons.Default.Stop, null, Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("abort", style = MaterialTheme.typography.labelSmall)
+                    Text("abort", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 }
             }
         }
@@ -473,12 +474,12 @@ private fun SwitchStatusChip(name: String, state: String?, modifier: Modifier = 
         else           -> "?" to NxFg2
     }
     Row(modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(dot, color = color, style = MaterialTheme.typography.bodySmall)
+        Text(dot, color = color, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         Spacer(Modifier.width(6.dp))
-        Text(name, style = MaterialTheme.typography.labelSmall, color = NxFg)
+        Text(name, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg)
         if (state != null && state != "unconfigured") {
             Spacer(Modifier.width(4.dp))
-            Text(state, style = MaterialTheme.typography.labelSmall, color = color)
+            Text(state, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = color)
         }
     }
 }
@@ -490,6 +491,6 @@ private fun nxFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor        = NxFg,
     unfocusedTextColor      = NxFg,
     cursorColor             = NxOrange,
-    focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    focusedContainerColor   = NxBg2,
+    unfocusedContainerColor = NxBg2,
 )

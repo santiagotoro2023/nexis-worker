@@ -1,5 +1,6 @@
 package ch.toroag.nexis.desktop.ui.hypervisor
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +27,7 @@ fun HypervisorScreen(vm: HypervisorViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(NxBg)
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -35,20 +37,20 @@ fun HypervisorScreen(vm: HypervisorViewModel) {
                 modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Text("HYPERVISOR NODE", color = NxOrange, fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleSmall, letterSpacing = 2.sp)
+                        fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     Text("NX-HV · VIRTUAL INFRASTRUCTURE", color = NxFg2,
-                        style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                        fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { vm.refresh() },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2)) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("REFRESH", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                        Text("REFRESH", fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                     OutlinedButton(onClick = { vm.disconnect() },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2)) {
-                        Text("DISCONNECT", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                        Text("DISCONNECT", fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                 }
             }
@@ -57,11 +59,11 @@ fun HypervisorScreen(vm: HypervisorViewModel) {
                 modifier = Modifier.fillMaxWidth(), color = NxOrange, trackColor = NxBg3)
 
             if (vm.error.isNotEmpty()) {
-                Surface(color = MaterialTheme.colorScheme.errorContainer,
-                    shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
+                Surface(color = NxRed.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Text(vm.error, modifier = Modifier.padding(10.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall)
+                        color = NxRed,
+                        fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 }
             }
 
@@ -88,9 +90,9 @@ private fun ConnectPanel(onConnect: (String, String, String) -> Unit) {
         Icon(Icons.Default.Dns, contentDescription = null, tint = NxOrange, modifier = Modifier.size(48.dp))
         Spacer(Modifier.height(16.dp))
         Text("HYPERVISOR NODE", color = NxOrange, fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleSmall, letterSpacing = 2.sp)
+            fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
         Text("No node connected. Enter the hypervisor address and credentials.",
-            color = NxFg2, style = MaterialTheme.typography.bodySmall,
+            color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp,
             modifier = Modifier.padding(vertical = 8.dp))
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(value = url, onValueChange = { url = it },
@@ -111,8 +113,8 @@ private fun ConnectPanel(onConnect: (String, String, String) -> Unit) {
             colors = nxFieldColors())
         if (err.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
-            Text(err, color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.labelSmall)
+            Text(err, color = NxRed,
+                fontFamily = FontFamily.Monospace, fontSize = 10.sp)
         }
         Spacer(Modifier.height(12.dp))
         Button(onClick = {
@@ -144,8 +146,8 @@ private fun MetricsCard(m: NexisApiService.HvMetrics) {
 private fun MetricPill(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = NxOrange, fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium)
-        Text(label, color = NxFg2, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+            fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
     }
 }
 
@@ -153,7 +155,7 @@ private fun MetricPill(label: String, value: String) {
 private fun VmListCard(vms: List<NexisApiService.HvVm>, onAction: (String, String) -> Unit) {
     NxCard("VIRTUAL INSTANCES") {
         if (vms.isEmpty()) {
-            Text("No instances provisioned.", color = NxFg2, style = MaterialTheme.typography.bodySmall)
+            Text("No instances provisioned.", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         } else {
             vms.forEach { vm ->
                 HvItemRow(name = vm.name, status = vm.status,
@@ -172,7 +174,7 @@ private fun VmListCard(vms: List<NexisApiService.HvVm>, onAction: (String, Strin
 private fun ContainerListCard(cts: List<NexisApiService.HvContainer>, onAction: (String, String) -> Unit) {
     NxCard("CONTAINERS") {
         if (cts.isEmpty()) {
-            Text("No containers provisioned.", color = NxFg2, style = MaterialTheme.typography.bodySmall)
+            Text("No containers provisioned.", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         } else {
             cts.forEach { ct ->
                 HvItemRow(name = ct.name, status = ct.status,
@@ -196,32 +198,32 @@ private fun HvItemRow(
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(color = if (running) NxGreen.copy(alpha = .15f) else NxBg3,
-                shape = MaterialTheme.shapes.extraSmall) {
+                shape = RoundedCornerShape(4.dp)) {
                 Text(if (running) "ACTIVE" else status.uppercase(),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     color = if (running) NxGreen else NxFg2,
-                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, color = NxFg, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                Text(detail, color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                Text(name, color = NxFg, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(detail, color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (!running) {
                     OutlinedButton(onClick = onStart, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange)) {
-                        Text("START", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                        Text("START", fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                 } else {
                     OutlinedButton(onClick = onSecondary, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2)) {
-                        Text(secondaryLabel, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                        Text(secondaryLabel, fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                     OutlinedButton(onClick = onStop, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2)) {
-                        Text("STOP", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                        Text("STOP", fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                 }
             }
@@ -235,7 +237,7 @@ private fun CommandCard(result: String, onSend: (String) -> Unit) {
     var cmd by remember { mutableStateOf("") }
     NxCard("COMMAND RELAY") {
         Text("Relay natural language commands directly to the hypervisor node.",
-            color = NxFg2, style = MaterialTheme.typography.labelSmall,
+            color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 10.sp,
             modifier = Modifier.padding(bottom = 8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(value = cmd, onValueChange = { cmd = it },
@@ -249,9 +251,9 @@ private fun CommandCard(result: String, onSend: (String) -> Unit) {
         }
         if (result.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            Surface(color = NxBg3, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
+            Surface(color = NxBg3, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                 Text(result, modifier = Modifier.padding(10.dp), color = NxFg2,
-                    style = MaterialTheme.typography.bodySmall)
+                    fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             }
         }
     }
@@ -259,10 +261,10 @@ private fun CommandCard(result: String, onSend: (String) -> Unit) {
 
 @Composable
 private fun NxCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(color = NxBg3, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = NxBg3, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(title, color = NxOrange, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.labelSmall, letterSpacing = 1.5.sp,
+                fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.5.sp,
                 modifier = Modifier.padding(bottom = 10.dp))
             content()
         }

@@ -1,5 +1,6 @@
 package ch.toroag.nexis.desktop.ui.schedules
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ch.toroag.nexis.desktop.ui.theme.*
 
@@ -26,12 +28,12 @@ fun SchedulesScreen(vm: SchedulesViewModel) {
     if (pendingDeleteId != null) {
         AlertDialog(
             onDismissRequest = { pendingDeleteId = null },
-            containerColor   = MaterialTheme.colorScheme.surface,
+            containerColor   = NxBg2,
             title = { Text("delete schedule", color = NxFg) },
             text  = { Text("Remove this scheduled task?", color = NxFg2) },
             confirmButton = {
                 TextButton(onClick = { vm.deleteSchedule(pendingDeleteId!!); pendingDeleteId = null }) {
-                    Text("delete", color = MaterialTheme.colorScheme.error)
+                    Text("delete", color = NxRed)
                 }
             },
             dismissButton = {
@@ -42,9 +44,9 @@ fun SchedulesScreen(vm: SchedulesViewModel) {
         )
     }
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().background(NxBg).padding(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("schedules", style = MaterialTheme.typography.titleMedium, color = NxFg,
+            Text("schedules", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NxFg,
                  modifier = Modifier.weight(1f))
             IconButton(onClick = { vm.loadSchedules() }) {
                 Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2)
@@ -53,7 +55,7 @@ fun SchedulesScreen(vm: SchedulesViewModel) {
         Spacer(Modifier.height(12.dp))
 
         if (error != null) {
-            Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(error!!, color = NxRed, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
         }
 
@@ -64,10 +66,10 @@ fun SchedulesScreen(vm: SchedulesViewModel) {
         } else if (schedules.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("no schedules", color = NxFg2, style = MaterialTheme.typography.bodySmall)
+                    Text("no schedules", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("use //schedule in chat to create one",
-                         color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                         color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 }
             }
         } else {
@@ -77,7 +79,7 @@ fun SchedulesScreen(vm: SchedulesViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                         shape    = RoundedCornerShape(4.dp),
                         border   = androidx.compose.foundation.BorderStroke(0.5.dp, NxBorder),
-                        colors   = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        colors   = CardDefaults.outlinedCardColors(containerColor = NxBg3),
                     ) {
                         Row(
                             Modifier.padding(12.dp),
@@ -87,18 +89,18 @@ fun SchedulesScreen(vm: SchedulesViewModel) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (sched.name.isNotEmpty()) {
                                     Text(sched.name,
-                                         style = MaterialTheme.typography.titleSmall,
+                                         fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                          color = NxFg)
                                 }
                                 Text(sched.prompt,
-                                     style = MaterialTheme.typography.bodySmall,
+                                     fontFamily = FontFamily.Monospace, fontSize = 11.sp,
                                      color = NxFg)
                                 Text(sched.expr,
-                                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                                     fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                                      color = NxOrange)
                                 if (!sched.lastRun.isNullOrEmpty()) {
                                     Text("last: ${sched.lastRun.take(16)}",
-                                         style = MaterialTheme.typography.labelSmall,
+                                         fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                                          color = NxFg2)
                                 }
                             }

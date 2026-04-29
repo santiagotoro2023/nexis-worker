@@ -8,6 +8,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+// ── Color palette — mirrors the web UI CSS variables ─────────────────────────
 val NxOrange    = Color(0xFFE8720C)
 val NxOrangeDim = Color(0xFFC45C00)
 val NxOrangeLit = Color(0xFFFF9533)
@@ -20,6 +21,8 @@ val NxFg2       = Color(0xFF887766)
 val NxBorder    = Color(0xFF1A1A12)
 val NxOutline   = Color(0xFF3A3A28)
 val NxGreen     = Color(0xFF4CAF50)
+val NxRed       = Color(0xFFEF5350)
+val NxYellow    = Color(0xFFFFC107)
 
 private val NexisColorScheme = darkColorScheme(
     primary              = NxOrange,
@@ -40,7 +43,7 @@ private val NexisColorScheme = darkColorScheme(
     onSurfaceVariant     = NxFg2,
     outline              = NxOutline,
     outlineVariant       = NxBorder,
-    error                = Color(0xFFCF6679),
+    error                = NxRed,
     onError              = NxBg,
     errorContainer       = Color(0xFF4A1520),
     onErrorContainer     = Color(0xFFFFB3BC),

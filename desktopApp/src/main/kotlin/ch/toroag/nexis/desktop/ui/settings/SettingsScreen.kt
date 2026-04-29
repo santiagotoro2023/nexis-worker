@@ -1,5 +1,6 @@
 package ch.toroag.nexis.desktop.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,11 +12,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import ch.toroag.nexis.desktop.ui.theme.*
 import ch.toroag.nexis.desktop.util.DesktopUpdateChecker
@@ -54,17 +57,18 @@ fun SettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
+            .background(NxBg)
             .padding(24.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("settings", style = MaterialTheme.typography.titleMedium, color = NxFg)
+        Text("SETTINGS", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxFg2)
         Spacer(Modifier.height(8.dp))
 
         // Controller URL
         SettingsSection("controller") {
             Text(baseUrl.ifEmpty { "not configured" },
-                 style = MaterialTheme.typography.bodyMedium,
+                 fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                  color = if (baseUrl.isEmpty()) NxFg2 else NxFg)
         }
 
@@ -74,12 +78,12 @@ fun SettingsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("checking...", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                    Text("checking...", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                 }
             } else if (health == null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("unreachable", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                    Text("unreachable", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                     IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.Refresh, "Retry", tint = NxFg2, modifier = Modifier.size(16.dp))
                     }
@@ -105,10 +109,10 @@ fun SettingsScreen(
         // Certificate
         SettingsSection("certificate") {
             if (certPin != null) {
-                Text("pinned — connection trusted", style = MaterialTheme.typography.bodySmall, color = NxOrange)
+                Text("pinned — connection trusted", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange)
                 Spacer(Modifier.height(4.dp))
                 Text(certPin!!,
-                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp),
+                     fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                      color = NxFg2)
                 Spacer(Modifier.height(10.dp))
                 OutlinedButton(
@@ -120,10 +124,10 @@ fun SettingsScreen(
                 ) { Text("forget certificate") }
                 Spacer(Modifier.height(4.dp))
                 Text("use this if the server cert was regenerated — next connection will re-pair automatically.",
-                     style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                     fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
             } else {
                 Text("no certificate pinned — will pin on next connection.",
-                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
             }
         }
 
@@ -131,30 +135,30 @@ fun SettingsScreen(
         val fieldColors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = NxOrangeDim, unfocusedBorderColor = NxBorder,
             focusedTextColor = NxFg, unfocusedTextColor = NxFg, cursorColor = NxOrange,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedContainerColor = NxBg2,
+            unfocusedContainerColor = NxBg2,
         )
         SettingsSection("home assistant") {
             Text("credentials for local Home Assistant instance.",
-                 style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                 fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(haUrlInput, { haUrlInput = it },
                 label = { Text("HA URL (e.g. http://192.168.1.61:8123)", color = NxFg2) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                textStyle = MaterialTheme.typography.bodyMedium)
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(haUsernameInput, { haUsernameInput = it },
                 label = { Text("username", color = NxFg2) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                textStyle = MaterialTheme.typography.bodyMedium)
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(haPasswordInput, { haPasswordInput = it },
                 label = { Text("password", color = NxFg2) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                textStyle = MaterialTheme.typography.bodyMedium,
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg),
                 visualTransformation = if (haPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { haPasswordVisible = !haPasswordVisible }, modifier = Modifier.size(24.dp)) {
@@ -167,13 +171,13 @@ fun SettingsScreen(
                 label = { Text("main switch entity ID", color = NxFg2) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                textStyle = MaterialTheme.typography.bodyMedium)
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(haCompInput, { haCompInput = it },
                 label = { Text("computer switch entity ID", color = NxFg2) },
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
                 shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                textStyle = MaterialTheme.typography.bodyMedium)
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg))
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -185,7 +189,7 @@ fun SettingsScreen(
                     border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
                 ) {
                     if (haTestLoading) CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
-                    else Text("test connection", style = MaterialTheme.typography.labelMedium)
+                    else Text("test connection", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 }
                 Button(
                     onClick = {
@@ -194,21 +198,21 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f).height(40.dp),
                     shape    = RoundedCornerShape(4.dp),
                     colors   = ButtonDefaults.buttonColors(containerColor = NxOrangeDim,
-                        contentColor = MaterialTheme.colorScheme.background),
-                ) { Text("save", style = MaterialTheme.typography.labelMedium) }
+                        contentColor = NxBg),
+                ) { Text("save", fontFamily = FontFamily.Monospace, fontSize = 11.sp) }
             }
             if (haTestResult != null) {
                 Spacer(Modifier.height(4.dp))
                 Text(haTestResult!!,
-                     style = MaterialTheme.typography.labelSmall,
-                     color = if (haTestResult!!.startsWith("✓")) NxOrange else MaterialTheme.colorScheme.error)
+                     fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                     color = if (haTestResult!!.startsWith("✓")) NxOrange else NxRed)
             }
         }
 
         // Re-authenticate
         SettingsSection("re-authenticate") {
             Text("use this if you changed your nexis password.",
-                 style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                 fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value         = reAuthPw,
@@ -220,10 +224,10 @@ fun SettingsScreen(
                 colors        = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = NxOrangeDim, unfocusedBorderColor = NxBorder,
                     focusedTextColor = NxFg, unfocusedTextColor = NxFg, cursorColor = NxOrange,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = NxBg2,
+                    unfocusedContainerColor = NxBg2,
                 ),
-                textStyle = MaterialTheme.typography.bodyMedium,
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg),
                 visualTransformation = PasswordVisualTransformation(),
             )
             Spacer(Modifier.height(8.dp))
@@ -233,12 +237,12 @@ fun SettingsScreen(
                 enabled  = reAuthPw.isNotBlank(),
                 shape    = RoundedCornerShape(4.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = NxOrangeDim,
-                                                       contentColor = MaterialTheme.colorScheme.background),
+                                                       contentColor = NxBg),
             ) { Text("re-authenticate") }
         }
 
         if (status != null) {
-            Text(status!!, color = NxOrange, style = MaterialTheme.typography.bodySmall)
+            Text(status!!, color = NxOrange, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         }
 
         // App update
@@ -252,8 +256,8 @@ fun SettingsScreen(
             onClick  = { vm.logout(onLogout) },
             modifier = Modifier.fillMaxWidth(),
             shape    = RoundedCornerShape(4.dp),
-            colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxRed),
+            border   = androidx.compose.foundation.BorderStroke(1.dp, NxRed.copy(alpha = 0.5f)),
         ) { Text("disconnect") }
     }
 }
@@ -273,7 +277,7 @@ private fun UpdateSection(
                 shape    = RoundedCornerShape(4.dp),
                 colors   = ButtonDefaults.buttonColors(
                     containerColor = NxOrangeDim,
-                    contentColor   = MaterialTheme.colorScheme.background,
+                    contentColor   = NxBg,
                 ),
             ) { Text("check for updates") }
         }
@@ -281,20 +285,20 @@ private fun UpdateSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
-                Text("checking...", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                Text("checking...", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
             }
         }
         is UpdateState.UpToDate -> {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("up to date", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                Text("up to date", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                 TextButton(onClick = onDismiss) { Text("dismiss", color = NxFg2) }
             }
         }
         is UpdateState.Available -> {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("update available: ${state.release.tag}",
-                     style = MaterialTheme.typography.bodySmall, color = NxOrange)
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick  = { onInstall(state.release) },
@@ -302,7 +306,7 @@ private fun UpdateSection(
                         shape    = RoundedCornerShape(4.dp),
                         colors   = ButtonDefaults.buttonColors(
                             containerColor = NxOrangeDim,
-                            contentColor   = MaterialTheme.colorScheme.background,
+                            contentColor   = NxBg,
                         ),
                     ) { Text("download & install") }
                     OutlinedButton(
@@ -318,7 +322,7 @@ private fun UpdateSection(
         is UpdateState.Downloading -> {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("downloading... ${state.progress}%",
-                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                 LinearProgressIndicator(
                     progress        = { state.progress / 100f },
                     modifier        = Modifier.fillMaxWidth(),
@@ -332,21 +336,21 @@ private fun UpdateSection(
                 CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                 Spacer(Modifier.width(8.dp))
                 Text("installing — approve the system dialog...",
-                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
             }
         }
         is UpdateState.Done -> {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("installed — restart to apply update",
-                     style = MaterialTheme.typography.bodySmall, color = NxOrange)
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange)
                 TextButton(onClick = onDismiss) { Text("ok", color = NxFg2) }
             }
         }
         is UpdateState.Error -> {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(state.msg, style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.error)
+                Text(state.msg, fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                     color = NxRed)
                 TextButton(onClick = onDismiss) { Text("dismiss", color = NxFg2) }
             }
         }
@@ -356,7 +360,7 @@ private fun UpdateSection(
 @Composable
 private fun SettingsSection(label: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = NxOrange,
+        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange,
              modifier = Modifier.padding(bottom = 6.dp))
         HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
         Spacer(Modifier.height(8.dp))
@@ -368,8 +372,8 @@ private fun SettingsSection(label: String, content: @Composable ColumnScope.() -
 @Composable
 private fun HealthRow(label: String, value: String) {
     Row {
-        Text("$label  ", style = MaterialTheme.typography.labelSmall, color = NxFg2)
-        Text(value, style = MaterialTheme.typography.labelSmall, color = NxFg)
+        Text("$label  ", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
+        Text(value, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg)
     }
 }
 

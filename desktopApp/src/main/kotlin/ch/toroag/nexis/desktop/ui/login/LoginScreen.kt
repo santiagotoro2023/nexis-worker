@@ -1,5 +1,7 @@
 package ch.toroag.nexis.desktop.ui.login
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,9 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.toroag.nexis.desktop.ui.theme.*
@@ -31,125 +36,201 @@ fun LoginScreen(
         if (uiState is LoginState.Success) onLoginSuccess()
     }
 
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier         = Modifier
+            .fillMaxSize()
+            .background(NxBg),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Grid background overlay
+        GridBackground()
+
         Column(
-            Modifier.width(360.dp),
-            verticalArrangement   = Arrangement.Center,
-            horizontalAlignment   = Alignment.Start,
+            modifier            = Modifier.width(420.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Eye logo
+            NexisEyeLogo(size = 56.dp)
+            Spacer(Modifier.height(16.dp))
+
+            // Title
             Text(
                 "NEXIS",
-                style         = MaterialTheme.typography.headlineLarge,
-                color         = NxOrange,
+                fontFamily    = FontFamily.Monospace,
+                fontSize      = 26.sp,
                 fontWeight    = FontWeight.Bold,
-                letterSpacing = 3.sp,
+                letterSpacing = 0.4.sp,
+                color         = NxFg,
             )
             Text(
-                "connect to controller",
-                style = MaterialTheme.typography.labelSmall,
-                color = NxFg2,
+                "WORKER NODE",
+                fontFamily    = FontFamily.Monospace,
+                fontSize      = 10.sp,
+                letterSpacing = 0.2.sp,
+                color         = NxFg2,
             )
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(32.dp))
 
-            Text("server url", style = MaterialTheme.typography.labelMedium, color = NxFg2)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value         = url,
-                onValueChange = { url = it },
-                placeholder   = {
-                    Text("192.168.1.x:8443  or  nexis.example.com",
-                         color = NxFg2, style = MaterialTheme.typography.labelSmall)
-                },
-                modifier  = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape      = RoundedCornerShape(12.dp),
-                colors     = nxFieldColors(),
-                textStyle  = MaterialTheme.typography.bodyMedium,
-            )
+            // Auth card
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(NxBg3, RoundedCornerShape(16.dp))
+                    .border(1.dp, NxBorder, RoundedCornerShape(16.dp))
+                    .padding(24.dp),
+            ) {
+                Text(
+                    "IDENTITY VERIFICATION REQUIRED",
+                    fontFamily    = FontFamily.Monospace,
+                    fontSize      = 9.sp,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.18.sp,
+                    color         = NxOrange,
+                    modifier      = Modifier.padding(bottom = 16.dp),
+                )
 
-            Spacer(Modifier.height(16.dp))
+                // Server URL
+                Text(
+                    "CONTROLLER URL",
+                    fontFamily    = FontFamily.Monospace,
+                    fontSize      = 10.sp,
+                    letterSpacing = 0.15.sp,
+                    color         = NxFg2,
+                    modifier      = Modifier.padding(bottom = 4.dp),
+                )
+                OutlinedTextField(
+                    value         = url,
+                    onValueChange = { url = it },
+                    placeholder   = {
+                        Text(
+                            "https://192.168.1.x:8443",
+                            color = NxFg2.copy(alpha = 0.5f),
+                            style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                        )
+                    },
+                    modifier   = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape      = RoundedCornerShape(12.dp),
+                    colors     = nxFieldColors(),
+                    textStyle  = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = NxFg),
+                )
 
-            Text("username", style = MaterialTheme.typography.labelMedium, color = NxFg2)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value         = username,
-                onValueChange = { username = it },
-                placeholder   = { Text("creator", color = NxFg2, style = MaterialTheme.typography.labelSmall) },
-                modifier      = Modifier.fillMaxWidth(),
-                singleLine    = true,
-                shape         = RoundedCornerShape(12.dp),
-                colors        = nxFieldColors(),
-                textStyle     = MaterialTheme.typography.bodyMedium,
-            )
+                Spacer(Modifier.height(12.dp))
 
-            Spacer(Modifier.height(16.dp))
+                // Username
+                Text(
+                    "USERNAME",
+                    fontFamily    = FontFamily.Monospace,
+                    fontSize      = 10.sp,
+                    letterSpacing = 0.15.sp,
+                    color         = NxFg2,
+                    modifier      = Modifier.padding(bottom = 4.dp),
+                )
+                OutlinedTextField(
+                    value         = username,
+                    onValueChange = { username = it },
+                    placeholder   = {
+                        Text(
+                            "creator",
+                            color = NxFg2.copy(alpha = 0.5f),
+                            style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                        )
+                    },
+                    modifier   = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape      = RoundedCornerShape(12.dp),
+                    colors     = nxFieldColors(),
+                    textStyle  = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = NxFg),
+                )
 
-            Text("password", style = MaterialTheme.typography.labelMedium, color = NxFg2)
-            Spacer(Modifier.height(4.dp))
-            OutlinedTextField(
-                value         = password,
-                onValueChange = { password = it },
-                modifier      = Modifier.fillMaxWidth(),
-                singleLine    = true,
-                shape         = RoundedCornerShape(12.dp),
-                colors        = nxFieldColors(),
-                textStyle     = MaterialTheme.typography.bodyMedium,
-                visualTransformation = if (showPw) VisualTransformation.None
-                                       else PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { showPw = !showPw }) {
-                        Icon(
-                            if (showPw) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (showPw) "Hide" else "Show",
-                            tint = NxFg2,
+                Spacer(Modifier.height(12.dp))
+
+                // Password
+                Text(
+                    "PASSWORD",
+                    fontFamily    = FontFamily.Monospace,
+                    fontSize      = 10.sp,
+                    letterSpacing = 0.15.sp,
+                    color         = NxFg2,
+                    modifier      = Modifier.padding(bottom = 4.dp),
+                )
+                OutlinedTextField(
+                    value         = password,
+                    onValueChange = { password = it },
+                    modifier      = Modifier.fillMaxWidth(),
+                    singleLine    = true,
+                    shape         = RoundedCornerShape(12.dp),
+                    colors        = nxFieldColors(),
+                    textStyle     = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = NxFg),
+                    visualTransformation = if (showPw) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showPw = !showPw }) {
+                            Icon(
+                                if (showPw) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = NxFg2,
+                            )
+                        }
+                    },
+                )
+
+                if (uiState is LoginState.Error) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        (uiState as LoginState.Error).message,
+                        color = NxRed,
+                        style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Button(
+                    onClick  = { vm.login(url, username, password) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    enabled  = uiState !is LoginState.Loading,
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = ButtonDefaults.buttonColors(
+                        containerColor = NxOrange,
+                        contentColor   = NxBg,
+                    ),
+                ) {
+                    if (uiState is LoginState.Loading) {
+                        CircularProgressIndicator(Modifier.size(18.dp), color = NxBg, strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            "AUTHENTICATE",
+                            fontFamily    = FontFamily.Monospace,
+                            fontWeight    = FontWeight.Bold,
+                            letterSpacing = 0.15.sp,
+                            fontSize      = 11.sp,
                         )
                     }
-                },
-            )
-
-            if (uiState is LoginState.Error) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    (uiState as LoginState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            Spacer(Modifier.height(28.dp))
-
-            Button(
-                onClick  = { vm.login(url, username, password) },
-                modifier = Modifier.fillMaxWidth().height(44.dp),
-                enabled  = uiState !is LoginState.Loading,
-                shape    = RoundedCornerShape(12.dp),
-                colors   = ButtonDefaults.buttonColors(
-                    containerColor = NxOrangeDim,
-                    contentColor   = MaterialTheme.colorScheme.background,
-                ),
-            ) {
-                if (uiState is LoginState.Loading) {
-                    CircularProgressIndicator(
-                        Modifier.size(18.dp),
-                        color       = MaterialTheme.colorScheme.background,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("connect", style = MaterialTheme.typography.labelLarge)
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                "AUTHORISED PERSONNEL ONLY · LOCAL ACCESS",
+                fontFamily    = FontFamily.Monospace,
+                fontSize      = 9.sp,
+                letterSpacing = 0.1.sp,
+                color         = NxFg2,
+                textAlign     = TextAlign.Center,
+            )
         }
     }
 }
 
 @Composable
 private fun nxFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor   = NxBg2,
+    unfocusedContainerColor = NxBg2,
     focusedBorderColor      = NxOrangeDim,
     unfocusedBorderColor    = NxBorder,
     focusedTextColor        = NxFg,
     unfocusedTextColor      = NxFg,
     cursorColor             = NxOrange,
-    focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
 )

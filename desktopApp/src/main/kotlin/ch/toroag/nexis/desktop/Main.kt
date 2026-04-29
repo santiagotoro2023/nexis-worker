@@ -1,8 +1,13 @@
 package ch.toroag.nexis.desktop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,7 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -48,21 +56,20 @@ enum class Screen(
     val label: String,
     val icon:  ImageVector,
 ) {
-    Chat       ("chat",       Icons.Default.Chat),
-    Remote     ("remote",     Icons.Default.Computer),
-    Memories   ("memories",   Icons.Default.Psychology),
-    History    ("history",    Icons.Default.History),
-    Schedules  ("schedules",  Icons.Default.Schedule),
-    Devices    ("devices",    Icons.Default.Devices),
-    Hypervisor ("hypervisor", Icons.Default.Dns),
-    Settings   ("settings",   Icons.Default.Settings),
+    Chat       ("CHAT",       Icons.Default.Chat),
+    Remote     ("REMOTE",     Icons.Default.Computer),
+    Memories   ("MEMORIES",   Icons.Default.Psychology),
+    History    ("HISTORY",    Icons.Default.History),
+    Schedules  ("SCHEDULES",  Icons.Default.Schedule),
+    Devices    ("DEVICES",    Icons.Default.Devices),
+    Hypervisor ("HYPERVISOR", Icons.Default.Dns),
+    Settings   ("SETTINGS",   Icons.Default.Settings),
 }
 
 fun main() = application {
-    val windowState = rememberWindowState(width = 1100.dp, height = 720.dp)
+    val windowState = rememberWindowState(width = 1200.dp, height = 760.dp)
     var isVisible   by remember { mutableStateOf(true) }
 
-    // Install tray icon once; open/quit callbacks talk to the Compose application
     DisposableEffect(Unit) {
         SystemTrayManager.install(
             onOpen = { isVisible = true },
@@ -89,8 +96,6 @@ fun main() = application {
         visible     = isVisible,
         undecorated = true,
     ) {
-        // 'window' is the underlying ComposeWindow (AWT), accessible here in FrameWindowScope.
-        // Capture it so we can move the window from within the drag modifier below.
         val awtWindow = window
         LaunchedEffect(Unit) {
             runCatching {
@@ -103,15 +108,16 @@ fun main() = application {
         }
 
         NexisTheme {
-            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            Column(Modifier.fillMaxSize().background(NxBg)) {
                 // ── Custom title bar ───────────────────────────────────────────
-                // Drag-to-move implemented via AWT mouse coordinates rather than
-                // WindowDraggableArea (not available in this Compose version).
                 var dragOrigin by remember { mutableStateOf<Point?>(null) }
 
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .background(NxBg2)
+                        .border(width = 0.5.dp, color = NxBorder, shape = RoundedCornerShape(0.dp))
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 while (true) {
@@ -137,40 +143,36 @@ fun main() = application {
                                 }
                             }
                         }
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().height(40.dp)
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Text(
+                        "NEXIS WORKER  ·  NX-WRK · BUILD 1.0.6",
+                        fontFamily    = FontFamily.Monospace,
+                        fontSize      = 10.sp,
+                        letterSpacing = 0.15.sp,
+                        color         = NxFg2,
+                        modifier      = Modifier.weight(1f),
+                    )
+                    // Minimise
+                    Box(
+                        Modifier.size(32.dp).clickable { windowState.isMinimized = true },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            "NEXIS WORKER  ·  NX-WRK · BUILD 1.0.0",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = NxFg2,
-                            modifier = Modifier.weight(1f),
-                        )
-                        // Minimise
-                        Box(
-                            Modifier.size(36.dp).clickable { windowState.isMinimized = true },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("─", color = NxFg2,
-                                 style = MaterialTheme.typography.bodyMedium)
-                        }
-                        // Close / hide to tray
-                        Box(
-                            Modifier.size(36.dp).clickable {
-                                if (SystemTrayManager.isSupported) isVisible = false
-                                else { SystemTrayManager.remove(); exitApplication() }
-                            },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("✕", color = NxFg2,
-                                 style = MaterialTheme.typography.bodyMedium)
-                        }
+                        Text("─", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
                     }
-                    HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
+                    // Close / hide to tray
+                    Box(
+                        Modifier.size(32.dp).clickable {
+                            if (SystemTrayManager.isSupported) isVisible = false
+                            else { SystemTrayManager.remove(); exitApplication() }
+                        },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("✕", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                    }
                 }
+
                 App()
             }
         }
@@ -180,11 +182,7 @@ fun main() = application {
 @Composable
 private fun App() {
     val prefs = remember { PreferencesRepository.get() }
-
-    // Determine initial auth state synchronously (cold read from prefs)
-    val hasToken = remember {
-        runBlocking { prefs.token.first().isNotEmpty() }
-    }
+    val hasToken = remember { runBlocking { prefs.token.first().isNotEmpty() } }
     var isLoggedIn by remember { mutableStateOf(hasToken) }
 
     if (!isLoggedIn) {
@@ -200,7 +198,6 @@ private fun App() {
 
 @Composable
 private fun MainShell(onLogout: () -> Unit) {
-    // Hoist all VMs here so they survive navigation
     val chatVm       = remember { ChatViewModel() }
     val remoteVm     = remember { RemoteViewModel() }
     val devicesVm    = remember { DevicesViewModel() }
@@ -212,43 +209,14 @@ private fun MainShell(onLogout: () -> Unit) {
 
     var currentScreen by remember { mutableStateOf(Screen.Chat) }
 
-    Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Row(Modifier.fillMaxSize().background(NxBg)) {
 
-        // ── Sidebar ────────────────────────────────────────────────────────────
-        Surface(
-            color           = MaterialTheme.colorScheme.surface,
-            shadowElevation = 2.dp,
-            modifier        = Modifier.width(200.dp).fillMaxHeight(),
-        ) {
-            Column(Modifier.fillMaxSize().padding(top = 16.dp)) {
-                // Logo / brand
-                Row(
-                    Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    NexisEyeLogo(modifier = Modifier.size(28.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text("NEXIS", style = MaterialTheme.typography.labelLarge, color = NxOrange)
-                        Text("WORKER", style = MaterialTheme.typography.labelSmall, color = NxFg2)
-                    }
-                }
-
-                HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
-                Spacer(Modifier.height(8.dp))
-
-                // Nav items
-                Screen.entries.forEach { screen ->
-                    val selected = currentScreen == screen
-                    NavItem(
-                        label    = screen.label,
-                        icon     = screen.icon,
-                        selected = selected,
-                        onClick  = { currentScreen = screen },
-                    )
-                }
-            }
-        }
+        // ── Sidebar 240dp ──────────────────────────────────────────────────────
+        NexisSidebar(
+            currentScreen = currentScreen,
+            onNavigate    = { currentScreen = it },
+            onLogout      = onLogout,
+        )
 
         // ── Content ────────────────────────────────────────────────────────────
         Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -260,45 +228,170 @@ private fun MainShell(onLogout: () -> Unit) {
                 Screen.Schedules  -> SchedulesScreen(vm = schedulesVm)
                 Screen.Devices    -> DevicesScreen(vm = devicesVm)
                 Screen.Hypervisor -> HypervisorScreen(vm = hypervisorVm)
-                Screen.Settings   -> SettingsScreen(
-                    vm       = settingsVm,
-                    onLogout = onLogout,
-                )
+                Screen.Settings   -> SettingsScreen(vm = settingsVm, onLogout = onLogout)
             }
         }
     }
 }
 
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
 @Composable
-private fun NavItem(
-    label:    String,
-    icon:     ImageVector,
+private fun NexisSidebar(
+    currentScreen: Screen,
+    onNavigate:    (Screen) -> Unit,
+    onLogout:      () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(240.dp)
+            .fillMaxHeight()
+            .background(NxBg2)
+            .border(width = 1.dp, color = NxBorder,
+                    shape = RoundedCornerShape(topEnd = 0.dp, bottomEnd = 0.dp)),
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NexisEyeLogo(size = 28.dp)
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(
+                    "NEXIS",
+                    fontFamily    = FontFamily.Monospace,
+                    fontSize      = 13.sp,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.2.sp,
+                    color         = NxFg,
+                )
+                Text(
+                    "WORKER",
+                    fontFamily    = FontFamily.Monospace,
+                    fontSize      = 9.sp,
+                    letterSpacing = 0.15.sp,
+                    color         = NxFg2,
+                )
+            }
+        }
+
+        HorizontalDivider(color = NxBorder, thickness = 1.dp)
+        Spacer(Modifier.height(8.dp))
+
+        // Nav items
+        Screen.entries.forEach { screen ->
+            SidebarNavItem(
+                screen    = screen,
+                selected  = currentScreen == screen,
+                onClick   = { onNavigate(screen) },
+            )
+        }
+
+        Spacer(Modifier.weight(1f))
+        HorizontalDivider(color = NxBorder, thickness = 1.dp)
+
+        // Version
+        Text(
+            "NX-WRK · BUILD 1.0.6",
+            fontFamily    = FontFamily.Monospace,
+            fontSize      = 9.sp,
+            letterSpacing = 0.1.sp,
+            color         = NxFg2.copy(alpha = 0.6f),
+            modifier      = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+
+        // Logout
+        LogoutNavItem(onClick = onLogout)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun SidebarNavItem(
+    screen:   Screen,
     selected: Boolean,
     onClick:  () -> Unit,
 ) {
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+    val shape             = RoundedCornerShape(12.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered         by interactionSource.collectIsHoveredAsState()
+
+    val bgColor = when {
+        selected  -> NxOrange.copy(alpha = 0.08f)
+        isHovered -> NxDim
+        else      -> androidx.compose.ui.graphics.Color.Transparent
+    }
+    val borderColor = when {
+        selected  -> NxOrange.copy(alpha = 0.18f)
+        else      -> androidx.compose.ui.graphics.Color.Transparent
+    }
+    val textColor = if (selected) NxOrange else NxFg2
+
     Row(
-        Modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(shape)
-            .background(if (selected) NxDim else androidx.compose.ui.graphics.Color.Transparent)
+            .background(bgColor, shape)
+            .border(1.dp, borderColor, shape)
+            .hoverable(interactionSource)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            icon,
-            contentDescription = label,
-            tint     = if (selected) NxOrange else NxFg2,
-            modifier = Modifier.size(18.dp),
+            screen.icon,
+            contentDescription = screen.label,
+            tint     = textColor,
+            modifier = Modifier.size(14.dp),
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (selected) NxFg else NxFg2,
+            screen.label,
+            fontFamily    = FontFamily.Monospace,
+            fontSize      = 10.sp,
+            letterSpacing = 0.12.sp,
+            fontWeight    = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color         = textColor,
+        )
+    }
+}
+
+@Composable
+private fun LogoutNavItem(onClick: () -> Unit) {
+    val shape             = RoundedCornerShape(12.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered         by interactionSource.collectIsHoveredAsState()
+
+    val textColor = if (isHovered) NxRed else NxFg2
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(shape)
+            .background(if (isHovered) NxRed.copy(alpha = 0.06f) else androidx.compose.ui.graphics.Color.Transparent, shape)
+            .hoverable(interactionSource)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.Logout,
+            contentDescription = "Logout",
+            tint     = textColor,
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "LOGOUT",
+            fontFamily    = FontFamily.Monospace,
+            fontSize      = 10.sp,
+            letterSpacing = 0.12.sp,
+            color         = textColor,
         )
     }
 }

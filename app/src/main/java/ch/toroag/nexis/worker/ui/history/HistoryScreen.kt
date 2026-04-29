@@ -2,6 +2,7 @@ package ch.toroag.nexis.worker.ui.history
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,12 +15,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     onBack:          () -> Unit,
@@ -35,105 +39,115 @@ fun HistoryScreen(
 
     if (confirmSession != null) {
         val session = confirmSession!!
-        AlertDialog(
-            onDismissRequest = { confirmSession = null },
-            title = { Text("load conversation?", color = NxFg) },
-            text  = {
-                Text(
-                    "this replaces the current active conversation.",
-                    color = NxFg2,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmSession = null
-                    vm.loadSession(session.sessionId) { onSessionLoaded() }
-                }) {
-                    Text("load", color = NxOrange)
+        Box(Modifier.fillMaxSize().background(NxBg.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
+            Column(
+                Modifier
+                    .fillMaxWidth(0.85f)
+                    .background(NxBg3, RoundedCornerShape(16.dp))
+                    .border(1.dp, NxBorder, RoundedCornerShape(16.dp))
+                    .padding(24.dp)
+            ) {
+                Text("LOAD CONVERSATION", fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                     fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxOrange,
+                     modifier = Modifier.padding(bottom = 12.dp))
+                Text("This replaces the current active conversation.",
+                     fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg2,
+                     modifier = Modifier.padding(bottom = 20.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { confirmSession = null },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
+                    ) { Text("CANCEL", fontFamily = FontFamily.Monospace, fontSize = 11.sp) }
+                    Button(
+                        onClick = { confirmSession = null; vm.loadSession(session.sessionId) { onSessionLoaded() } },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = NxOrange, contentColor = NxBg),
+                    ) { Text("LOAD", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmSession = null }) {
-                    Text("cancel", color = NxFg2)
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-        )
+            }
+        }
+        return
     }
 
     if (confirmDelete != null) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text("delete session?", color = NxFg) },
-            text  = { Text("permanently remove this conversation from history?", color = NxFg2,
-                           style = MaterialTheme.typography.bodySmall) },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.deleteSession(confirmDelete!!.sessionId)
-                    confirmDelete = null
-                }) { Text("delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) {
-                    Text("cancel", color = NxFg2)
+        Box(Modifier.fillMaxSize().background(NxBg.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
+            Column(
+                Modifier
+                    .fillMaxWidth(0.85f)
+                    .background(NxBg3, RoundedCornerShape(16.dp))
+                    .border(1.dp, NxBorder, RoundedCornerShape(16.dp))
+                    .padding(24.dp)
+            ) {
+                Text("DELETE SESSION", fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                     fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxRed,
+                     modifier = Modifier.padding(bottom = 12.dp))
+                Text("Permanently remove this conversation from history?",
+                     fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg2,
+                     modifier = Modifier.padding(bottom = 20.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { confirmDelete = null },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
+                    ) { Text("CANCEL", fontFamily = FontFamily.Monospace, fontSize = 11.sp) }
+                    Button(
+                        onClick = { vm.deleteSession(confirmDelete!!.sessionId); confirmDelete = null },
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = NxRed, contentColor = NxBg),
+                    ) { Text("DELETE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
                 }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-        )
+            }
+        }
+        return
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("history", style = MaterialTheme.typography.titleMedium, color = NxFg) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NxFg2)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { vm.loadSessions() }) {
-                        Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-        }
-    ) { padding ->
-        Column(
-            Modifier
-                .padding(padding)
-                .fillMaxSize()
+    Column(Modifier.fillMaxSize().background(NxBg).systemBarsPadding()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (error != null) {
-                Text(
-                    error!!,
-                    color    = MaterialTheme.colorScheme.error,
-                    style    = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+            IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = NxFg2, modifier = Modifier.size(18.dp))
             }
+            Spacer(Modifier.width(8.dp))
+            Text("CONVERSATION HISTORY", fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                 fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxFg2,
+                 modifier = Modifier.weight(1f))
+            IconButton(onClick = { vm.loadSessions() }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Refresh, null, tint = NxFg2, modifier = Modifier.size(18.dp))
+            }
+        }
+        HorizontalDivider(color = NxBorder, thickness = 1.dp)
 
-            when {
-                isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = NxOrange)
-                }
-                sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("no history yet", color = NxFg2, style = MaterialTheme.typography.bodyMedium)
-                }
-                else -> LazyColumn(
-                    contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(sessions, key = { it.sessionId }) { session ->
-                        SessionItem(
-                            session     = session,
-                            onClick     = { confirmSession = session },
-                            onLongPress = { confirmDelete = session },
-                        )
-                    }
+        if (error != null) {
+            Text(error!!, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxRed,
+                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        }
+
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
+            }
+            sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("NO HISTORY YET", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg2)
+            }
+            else -> LazyColumn(
+                contentPadding      = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(sessions, key = { it.sessionId }) { session ->
+                    SessionItem(
+                        session     = session,
+                        onClick     = { confirmSession = session },
+                        onLongPress = { confirmDelete = session },
+                    )
                 }
             }
         }
@@ -142,7 +156,7 @@ fun HistoryScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SessionItem(session: HistorySession, onClick: () -> Unit, onLongPress: () -> Unit = {}) {
+private fun SessionItem(session: HistorySession, onClick: () -> Unit, onLongPress: () -> Unit) {
     val firstUserMsg = session.preview.firstOrNull { it.role == "user" }?.content ?: ""
     val preview = if (firstUserMsg.length > 90) firstUserMsg.take(90) + "…" else firstUserMsg
     val displayTitle = session.title.ifBlank { null }
@@ -150,40 +164,26 @@ private fun SessionItem(session: HistorySession, onClick: () -> Unit, onLongPres
     Row(
         Modifier
             .fillMaxWidth()
-            .background(NxBg3, RoundedCornerShape(4.dp))
+            .background(NxBg3, RoundedCornerShape(12.dp))
+            .border(1.dp, NxBorder, RoundedCornerShape(12.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment     = Alignment.Top,
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            modifier            = Modifier.width(IntrinsicSize.Max),
-        ) {
-            Text(session.started, color = NxFg2, style = MaterialTheme.typography.labelSmall)
-            Text(
-                "(${session.source})",
-                color = NxOrangeDim,
-                style = MaterialTheme.typography.labelSmall,
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(session.started, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = NxFg2)
+            Text("(${session.source})", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = NxOrangeDim)
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             if (displayTitle != null) {
-                Text(
-                    displayTitle,
-                    color    = NxFg,
-                    style    = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Text(displayTitle, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                     color = NxFg, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(
-                preview.ifBlank { "(empty)" },
-                color    = if (displayTitle != null) NxFg2 else NxFg,
-                style    = MaterialTheme.typography.labelSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Text(preview.ifBlank { "(empty)" },
+                 fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                 color = if (displayTitle != null) NxFg2 else NxFg,
+                 maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }

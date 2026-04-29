@@ -1,5 +1,6 @@
 package ch.toroag.nexis.desktop.ui.devices
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,9 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import ch.toroag.nexis.desktop.data.NexisApiService
 import ch.toroag.nexis.desktop.ui.theme.*
@@ -28,9 +31,9 @@ fun DevicesScreen(vm: DevicesViewModel) {
 
     LaunchedEffect(Unit) { vm.loadDevices() }
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().background(NxBg).padding(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("device inventory", style = MaterialTheme.typography.titleMedium, color = NxFg,
+            Text("device inventory", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NxFg,
                  modifier = Modifier.weight(1f))
             IconButton(onClick = { vm.loadDevices() }) {
                 Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2)
@@ -57,7 +60,7 @@ fun DevicesScreen(vm: DevicesViewModel) {
                 if (devices.isEmpty()) {
                     item {
                         Text("no devices registered",
-                             style = MaterialTheme.typography.bodySmall,
+                             fontFamily = FontFamily.Monospace, fontSize = 11.sp,
                              color = NxFg2,
                              modifier = Modifier.padding(top = 32.dp))
                     }
@@ -79,25 +82,25 @@ private fun ProbePanel(output: String?, loading: Boolean, onDismiss: () -> Unit)
         modifier = Modifier.fillMaxWidth(),
         shape    = RoundedCornerShape(4.dp),
         border   = androidx.compose.foundation.BorderStroke(0.5.dp, NxOrangeDim),
-        colors   = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors   = CardDefaults.outlinedCardColors(containerColor = NxBg3),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("probe output", style = MaterialTheme.typography.labelMedium, color = NxOrange)
+                Text("probe output", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange)
                 TextButton(onClick = onDismiss, contentPadding = PaddingValues(0.dp)) {
-                    Text("dismiss", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                    Text("dismiss", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                 }
             }
             if (loading) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("probing…", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                    Text("probing…", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                 }
             } else if (output != null) {
                 Text(output,
-                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 15.sp),
+                     fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                      color = NxFg)
             }
         }
@@ -122,29 +125,29 @@ private fun DeviceCard(
         modifier = Modifier.fillMaxWidth(),
         shape    = RoundedCornerShape(4.dp),
         border   = androidx.compose.foundation.BorderStroke(0.5.dp, NxBorder),
-        colors   = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors   = CardDefaults.outlinedCardColors(containerColor = NxBg3),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (dev.online) "●" else "○", color = dotColor, style = MaterialTheme.typography.bodySmall)
+                Text(if (dev.online) "●" else "○", color = dotColor, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 Spacer(Modifier.width(8.dp))
-                Text(dev.hostname, style = MaterialTheme.typography.titleSmall, color = NxFg)
+                Text(dev.hostname, fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NxFg)
                 Spacer(Modifier.weight(1f))
                 Icon(if (dev.deviceType == "mobile") Icons.Default.PhoneAndroid else Icons.Default.Computer,
                      null, Modifier.size(16.dp), tint = NxFg2)
             }
 
-            Text("${dev.os} · ${dev.arch}", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+            Text("${dev.os} · ${dev.arch}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
 
             if (dev.ip.isNotEmpty()) {
                 Text("ip: ${dev.ip}  ·  last seen: ${dev.lastSeen.take(16)}",
-                     style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                     fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
             }
 
-            Text("id: ${dev.deviceId.take(8)}…", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+            Text("id: ${dev.deviceId.take(8)}…", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
 
             if (!dev.mac.isNullOrEmpty()) {
-                Text("mac: ${dev.mac}", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                Text("mac: ${dev.mac}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
             }
 
             if (dev.batteryPct != null) {
@@ -158,17 +161,17 @@ private fun DeviceCard(
                     Icon(battIcon, null, Modifier.size(14.dp), tint = NxFg2)
                     Spacer(Modifier.width(4.dp))
                     Text("${dev.batteryPct}%${if (dev.charging == true) " charging" else ""}",
-                         style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                 }
             }
 
             if (dev.role != null) {
-                Text(dev.role, style = MaterialTheme.typography.labelSmall, color = NxOrange)
+                Text(dev.role, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrange)
             }
 
             if (dev.deviceType == "desktop") {
                 HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
-                Text("unlock password", style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                Text("unlock password", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
@@ -177,8 +180,8 @@ private fun DeviceCard(
                         modifier      = Modifier.weight(1f),
                         singleLine    = true,
                         shape         = RoundedCornerShape(4.dp),
-                        textStyle     = MaterialTheme.typography.bodySmall,
-                        placeholder   = { Text("leave blank if none", style = MaterialTheme.typography.bodySmall, color = NxFg2.copy(alpha = 0.5f)) },
+                        textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg),
+                        placeholder   = { Text("leave blank if none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2.copy(alpha = 0.5f)) },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(20.dp)) {
@@ -189,8 +192,8 @@ private fun DeviceCard(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = NxOrangeDim, unfocusedBorderColor = NxBorder,
                             focusedTextColor = NxFg, unfocusedTextColor = NxFg, cursorColor = NxOrange,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedContainerColor = NxBg2,
+                            unfocusedContainerColor = NxBg2,
                         ),
                     )
                     OutlinedButton(
@@ -203,12 +206,12 @@ private fun DeviceCard(
                     ) {
                         Icon(Icons.Default.Save, null, Modifier.size(14.dp), tint = NxOrange)
                         Spacer(Modifier.width(4.dp))
-                        Text("save", style = MaterialTheme.typography.labelSmall)
+                        Text("save", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                     }
                 }
                 if (savedPassword.isNotEmpty()) {
                     Text("password saved — used automatically for unlock",
-                         style = MaterialTheme.typography.labelSmall, color = NxGreen.copy(alpha = 0.8f))
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxGreen.copy(alpha = 0.8f))
                 }
             }
 
@@ -223,7 +226,7 @@ private fun DeviceCard(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
                         border = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
-                    ) { Text("set primary PC", style = MaterialTheme.typography.labelSmall) }
+                    ) { Text("set primary PC", fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
                 }
                 if (dev.deviceType == "mobile" && dev.role != "primary_mobile") {
                     OutlinedButton(
@@ -233,7 +236,7 @@ private fun DeviceCard(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
                         border = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
-                    ) { Text("set primary mobile", style = MaterialTheme.typography.labelSmall) }
+                    ) { Text("set primary mobile", fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
                 }
                 OutlinedButton(
                     onClick = onProbe,
@@ -242,7 +245,7 @@ private fun DeviceCard(
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
                     border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
-                ) { Text("probe", style = MaterialTheme.typography.labelSmall) }
+                ) { Text("probe", fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
 
                 Spacer(Modifier.weight(1f))
 
@@ -251,7 +254,7 @@ private fun DeviceCard(
                     modifier = Modifier.size(32.dp),
                 ) {
                     Icon(Icons.Default.Delete, "Remove device",
-                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                         tint = NxRed.copy(alpha = 0.7f),
                          modifier = Modifier.size(16.dp))
                 }
             }
@@ -261,14 +264,14 @@ private fun DeviceCard(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest  = { confirmDelete = false },
-            containerColor    = MaterialTheme.colorScheme.surface,
+            containerColor    = NxBg2,
             titleContentColor = NxFg,
             textContentColor  = NxFg2,
-            title   = { Text("remove device", style = MaterialTheme.typography.titleSmall) },
+            title   = { Text("remove device", fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold) },
             text    = { Text("Remove \"${dev.hostname}\" from the device list? It will re-appear if the app reconnects.") },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; onDelete() }) {
-                    Text("remove", color = MaterialTheme.colorScheme.error)
+                    Text("remove", color = NxRed)
                 }
             },
             dismissButton = {

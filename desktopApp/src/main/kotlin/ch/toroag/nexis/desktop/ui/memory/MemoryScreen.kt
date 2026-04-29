@@ -1,5 +1,6 @@
 package ch.toroag.nexis.desktop.ui.memory
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,12 +27,12 @@ fun MemoryScreen(vm: MemoryViewModel) {
     if (pendingDeleteId != null) {
         AlertDialog(
             onDismissRequest = { pendingDeleteId = null },
-            containerColor   = MaterialTheme.colorScheme.surface,
+            containerColor   = NxBg2,
             title = { Text("delete memory", color = NxFg) },
             text  = { Text("Remove this memory permanently?", color = NxFg2) },
             confirmButton = {
                 TextButton(onClick = { vm.deleteMemory(pendingDeleteId!!); pendingDeleteId = null }) {
-                    Text("delete", color = MaterialTheme.colorScheme.error)
+                    Text("delete", color = NxRed)
                 }
             },
             dismissButton = {
@@ -42,9 +43,9 @@ fun MemoryScreen(vm: MemoryViewModel) {
         )
     }
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().background(NxBg).padding(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("memories", style = MaterialTheme.typography.titleMedium, color = NxFg,
+            Text("memories", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NxFg,
                  modifier = Modifier.weight(1f))
             IconButton(onClick = { vm.loadMemories() }) {
                 Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2)
@@ -61,15 +62,15 @@ fun MemoryScreen(vm: MemoryViewModel) {
             colors        = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = NxOrangeDim, unfocusedBorderColor = NxBorder,
                 focusedTextColor = NxFg, unfocusedTextColor = NxFg, cursorColor = NxOrange,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedContainerColor = NxBg2,
+                unfocusedContainerColor = NxBg2,
             ),
-            textStyle = MaterialTheme.typography.bodyMedium,
+            textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg),
         )
         Spacer(Modifier.height(12.dp))
 
         if (error != null) {
-            Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(error!!, color = NxRed, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
         }
 
@@ -79,7 +80,7 @@ fun MemoryScreen(vm: MemoryViewModel) {
             }
         } else if (memories.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("no memories found", color = NxFg2, style = MaterialTheme.typography.bodySmall)
+                Text("no memories found", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -88,7 +89,7 @@ fun MemoryScreen(vm: MemoryViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                         shape    = RoundedCornerShape(4.dp),
                         border   = androidx.compose.foundation.BorderStroke(0.5.dp, NxBorder),
-                        colors   = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        colors   = CardDefaults.outlinedCardColors(containerColor = NxBg3),
                     ) {
                         Row(
                             Modifier.padding(12.dp),
@@ -97,11 +98,11 @@ fun MemoryScreen(vm: MemoryViewModel) {
                         ) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(mem.content,
-                                     style = MaterialTheme.typography.bodySmall,
+                                     fontFamily = FontFamily.Monospace, fontSize = 11.sp,
                                      color = NxFg)
                                 if (mem.createdAt.isNotEmpty()) {
                                     Text(mem.createdAt.take(16),
-                                         style = MaterialTheme.typography.labelSmall,
+                                         fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                                          color = NxFg2)
                                 }
                             }

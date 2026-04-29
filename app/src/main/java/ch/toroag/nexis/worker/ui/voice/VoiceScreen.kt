@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,7 +34,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ch.toroag.nexis.worker.ui.theme.*
 import ch.toroag.nexis.worker.util.SpeechRecognizerHelper
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceScreen(
     onBack: () -> Unit,
@@ -60,20 +61,15 @@ fun VoiceScreen(
     val helper = remember { SpeechRecognizerHelper(context) }
     DisposableEffect(Unit) { onDispose { helper.destroy() } }
 
-    // When state enters Listening, start STT
     LaunchedEffect(state) {
         if (state == VoiceState.Listening) {
             helper.startListening(
-                onResult = { text ->
-                    if (text.isBlank()) vm.onListeningCancelled()
-                    else vm.onTranscript(text)
-                },
-                onError = { vm.onListeningCancelled() },
+                onResult = { text -> if (text.isBlank()) vm.onListeningCancelled() else vm.onTranscript(text) },
+                onError  = { vm.onListeningCancelled() },
             )
         }
     }
 
-    // Pulse animation while listening
     val pulse = rememberInfiniteTransition(label = "pulse")
     val pulseScale by pulse.animateFloat(
         initialValue  = 1f,
@@ -89,53 +85,48 @@ fun VoiceScreen(
         if (error != null) { kotlinx.coroutines.delay(3000); vm.clearError() }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("voice", style = MaterialTheme.typography.titleMedium, color = NxFg) },
-                navigationIcon = {
-                    IconButton(onClick = { vm.stopSpeaking(); onBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NxFg2)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
+    Column(
+        Modifier.fillMaxSize().background(NxBg).systemBarsPadding(),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { vm.stopSpeaking(); onBack() }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = NxFg2, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("VOICE", fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                 fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxFg2)
         }
-    ) { padding ->
+        HorizontalDivider(color = NxBorder, thickness = 1.dp)
+
         Column(
-            Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(24.dp),
+            Modifier.fillMaxSize().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Status label
             Text(
                 when (state) {
-                    VoiceState.Idle      -> "tap to speak"
-                    VoiceState.Listening -> "listening..."
-                    VoiceState.Thinking  -> "thinking… tap to cancel"
-                    VoiceState.Speaking  -> "speaking — tap to stop"
+                    VoiceState.Idle      -> "TAP TO SPEAK"
+                    VoiceState.Listening -> "LISTENING..."
+                    VoiceState.Thinking  -> "THINKING... TAP TO CANCEL"
+                    VoiceState.Speaking  -> "SPEAKING — TAP TO STOP"
                 },
-                style = MaterialTheme.typography.bodyMedium,
-                color = NxFg2,
+                fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 0.15.sp,
+                color = NxFg2, textAlign = TextAlign.Center,
             )
 
-            // Big mic / stop button with pulse halo when listening
             Box(contentAlignment = Alignment.Center) {
                 if (state == VoiceState.Listening) {
                     Box(
-                        Modifier
-                            .size(128.dp)
-                            .scale(pulseScale)
-                            .background(NxOrange.copy(alpha = 0.15f), CircleShape)
+                        Modifier.size(136.dp).scale(pulseScale)
+                            .background(NxOrange.copy(alpha = 0.12f), CircleShape)
                     )
                 }
                 Box(
                     Modifier
-                        .size(96.dp)
+                        .size(100.dp)
                         .background(
                             color = when (state) {
                                 VoiceState.Listening -> NxOrange
@@ -146,9 +137,7 @@ fun VoiceScreen(
                             shape = CircleShape,
                         )
                         .border(1.5.dp, NxBorder, CircleShape)
-                        .clickable(
-                            enabled = state != VoiceState.Listening
-                        ) {
+                        .clickable(enabled = state != VoiceState.Listening) {
                             when (state) {
                                 VoiceState.Speaking -> vm.stopSpeaking()
                                 VoiceState.Thinking -> vm.abort()
@@ -167,58 +156,50 @@ fun VoiceScreen(
                             VoiceState.Thinking -> Icons.Default.Close
                             else                -> Icons.Default.Mic
                         },
-                        contentDescription = "mic",
-                        tint               = if (state == VoiceState.Idle) NxFg2 else MaterialTheme.colorScheme.background,
-                        modifier           = Modifier.size(36.dp),
+                        contentDescription = null,
+                        tint     = if (state == VoiceState.Idle) NxFg2 else NxBg,
+                        modifier = Modifier.size(38.dp),
                     )
                 }
             }
 
-            // Conversation display
             Column(
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp)
-                    .verticalScroll(rememberScrollState()),
+                Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (transcript.isNotBlank()) {
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .background(NxDim, RoundedCornerShape(6.dp))
-                            .padding(12.dp)
+                            .background(NxDim, RoundedCornerShape(12.dp))
+                            .border(1.dp, NxBorder, RoundedCornerShape(12.dp))
+                            .padding(14.dp)
                     ) {
-                        Text("you", style = MaterialTheme.typography.labelSmall, color = NxOrangeDim)
-                        Spacer(Modifier.height(4.dp))
-                        Text(transcript, style = MaterialTheme.typography.bodySmall, color = NxFg)
+                        Text("YOU", fontFamily = FontFamily.Monospace, fontSize = 9.sp,
+                             letterSpacing = 0.15.sp, color = NxOrangeDim,
+                             modifier = Modifier.padding(bottom = 6.dp))
+                        Text(transcript, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                             color = NxFg, lineHeight = 18.sp)
                     }
                 }
                 if (response.isNotBlank()) {
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .background(NxBg3, RoundedCornerShape(6.dp))
-                            .padding(12.dp)
+                            .background(NxBg3, RoundedCornerShape(12.dp))
+                            .border(1.dp, NxBorder, RoundedCornerShape(12.dp))
+                            .padding(14.dp)
                     ) {
-                        Text("nexis", style = MaterialTheme.typography.labelSmall, color = NxOrange)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            response,
-                            style      = MaterialTheme.typography.bodySmall,
-                            color      = NxFg,
-                            lineHeight = 18.sp,
-                        )
+                        Text("NEXIS", fontFamily = FontFamily.Monospace, fontSize = 9.sp,
+                             letterSpacing = 0.15.sp, color = NxOrange,
+                             modifier = Modifier.padding(bottom = 6.dp))
+                        Text(response, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                             color = NxFg, lineHeight = 18.sp)
                     }
                 }
                 if (error != null) {
-                    Text(
-                        error!!,
-                        color     = MaterialTheme.colorScheme.error,
-                        style     = MaterialTheme.typography.labelSmall,
-                        textAlign = TextAlign.Center,
-                        modifier  = Modifier.fillMaxWidth(),
-                    )
+                    Text(error!!, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxRed,
+                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

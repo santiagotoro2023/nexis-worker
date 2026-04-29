@@ -24,7 +24,9 @@ import androidx.compose.ui.draganddrop.awtTransferable
 import java.awt.datatransfer.DataFlavor
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 import ch.toroag.nexis.desktop.util.MicRecorder
 import ch.toroag.nexis.desktop.ui.theme.*
@@ -130,7 +132,7 @@ fun ChatScreen(vm: ChatViewModel) {
     ) {
 
         // ── Top bar ────────────────────────────────────────────────────────────
-        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+        Surface(color = NxBg2, shadowElevation = 1.dp) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -145,7 +147,7 @@ fun ChatScreen(vm: ChatViewModel) {
                     )
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("chat", style = MaterialTheme.typography.titleMedium, color = NxFg,
+                Text("chat", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NxFg,
                      modifier = Modifier.weight(1f))
                 // Voice toggle
                 IconButton(onClick = { vm.toggleVoice(!voiceEnabled) }) {
@@ -157,7 +159,7 @@ fun ChatScreen(vm: ChatViewModel) {
                 }
                 if (currentModel.isNotEmpty()) {
                     TextButton(onClick = { showModelSheet = true }) {
-                        Text(currentModel, style = MaterialTheme.typography.labelSmall, color = NxFg2)
+                        Text(currentModel, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
                     }
                 }
                 IconButton(onClick = { showClearConfirm = true }) {
@@ -170,20 +172,20 @@ fun ChatScreen(vm: ChatViewModel) {
         if (monitorAlert != null) {
             Row(
                 Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .background(NxRed.copy(alpha = 0.12f))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Default.Warning, null,
-                     tint = MaterialTheme.colorScheme.onErrorContainer,
+                     tint = NxRed,
                      modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(monitorAlert!!, Modifier.weight(1f),
-                     color = MaterialTheme.colorScheme.onErrorContainer,
-                     style = MaterialTheme.typography.bodySmall)
+                     color = NxRed,
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 IconButton(onClick = { vm.dismissMonitorAlert() }) {
                     Icon(Icons.Default.Close, "Dismiss",
-                         tint = MaterialTheme.colorScheme.onErrorContainer)
+                         tint = NxRed)
                 }
             }
         }
@@ -192,16 +194,16 @@ fun ChatScreen(vm: ChatViewModel) {
         if (error != null) {
             Row(
                 Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .background(NxRed.copy(alpha = 0.12f))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(error!!, Modifier.weight(1f),
-                     color = MaterialTheme.colorScheme.onErrorContainer,
-                     style = MaterialTheme.typography.bodySmall)
+                     color = NxRed,
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 IconButton(onClick = { vm.clearError() }) {
                     Icon(Icons.Default.Close, "Dismiss",
-                         tint = MaterialTheme.colorScheme.onErrorContainer)
+                         tint = NxRed)
                 }
             }
         }
@@ -213,7 +215,7 @@ fun ChatScreen(vm: ChatViewModel) {
                     .background(NxOrangeDim.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("drop to attach", style = MaterialTheme.typography.labelSmall, color = NxOrange)
+                Text("drop to attach", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrange)
             }
         }
 
@@ -225,7 +227,7 @@ fun ChatScreen(vm: ChatViewModel) {
                 last >= info.totalItemsCount - 1
             }
         }
-        Box(Modifier.weight(1f).background(MaterialTheme.colorScheme.background)) {
+        Box(Modifier.weight(1f).background(NxBg)) {
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state               = listState,
@@ -244,7 +246,7 @@ fun ChatScreen(vm: ChatViewModel) {
                 SmallFloatingActionButton(
                     onClick        = { scope.launch { listState.animateScrollToItem(messages.size - 1) } },
                     modifier       = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = NxBg2,
                     contentColor   = NxFg2,
                 ) {
                     Icon(Icons.Default.KeyboardArrowDown, "Scroll to bottom",
@@ -257,14 +259,14 @@ fun ChatScreen(vm: ChatViewModel) {
         if (pendingAttach != null) {
             Row(
                 Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(NxBg2)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Default.AttachFile, null, tint = NxOrange, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(pendingAttach!!.name, Modifier.weight(1f),
-                     style = MaterialTheme.typography.bodySmall, color = NxFg)
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg)
                 IconButton(onClick = { pendingAttach = null }, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.Close, "Remove attachment", tint = NxFg2)
                 }
@@ -272,7 +274,7 @@ fun ChatScreen(vm: ChatViewModel) {
         }
 
         // ── Input bar ──────────────────────────────────────────────────────────
-        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
+        Surface(color = NxBg2, shadowElevation = 2.dp) {
             Row(
                 Modifier.padding(horizontal = 8.dp, vertical = 6.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -309,10 +311,10 @@ fun ChatScreen(vm: ChatViewModel) {
                         focusedTextColor        = NxFg,
                         unfocusedTextColor      = NxFg,
                         cursorColor             = NxOrange,
-                        focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor   = NxBg2,
+                        unfocusedContainerColor = NxBg2,
                     ),
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg),
                 )
 
                 Spacer(Modifier.width(4.dp))
@@ -325,7 +327,7 @@ fun ChatScreen(vm: ChatViewModel) {
                     DropdownMenu(
                         expanded         = showAttachMenu,
                         onDismissRequest = { showAttachMenu = false },
-                        containerColor   = MaterialTheme.colorScheme.surface,
+                        containerColor   = NxBg2,
                     ) {
                         DropdownMenuItem(
                             text    = { Text("Choose file…", color = NxFg) },
@@ -375,7 +377,7 @@ fun ChatScreen(vm: ChatViewModel) {
                     Icon(
                         if (isStreaming) Icons.Default.Stop else Icons.Default.Send,
                         if (isStreaming) "Stop" else "Send",
-                        tint = if (isStreaming) MaterialTheme.colorScheme.error else NxOrange,
+                        tint = if (isStreaming) NxRed else NxOrange,
                     )
                 }
             }
@@ -387,10 +389,10 @@ fun ChatScreen(vm: ChatViewModel) {
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest  = { showClearConfirm = false },
-            containerColor    = MaterialTheme.colorScheme.surface,
+            containerColor    = NxBg2,
             titleContentColor = NxFg,
             textContentColor  = NxFg2,
-            title   = { Text("New conversation", style = MaterialTheme.typography.titleMedium) },
+            title   = { Text("New conversation", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold) },
             text    = { Text("Start a fresh conversation. Nexis keeps its memories and history for context.") },
             confirmButton = {
                 TextButton(onClick = { showClearConfirm = false; vm.clearConversation() }) {
@@ -406,14 +408,14 @@ fun ChatScreen(vm: ChatViewModel) {
     if (showQuickActions) {
         AlertDialog(
             onDismissRequest = { showQuickActions = false },
-            containerColor   = MaterialTheme.colorScheme.surface,
-            title = { Text("quick actions", style = MaterialTheme.typography.titleSmall, color = NxFg) },
+            containerColor   = NxBg2,
+            title = { Text("quick actions", fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NxFg) },
             text  = {
                 Column {
                     QUICK_ACTIONS.forEach { (label, prompt) ->
                         Text(
                             label,
-                            style    = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                             color    = NxFg,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -433,8 +435,8 @@ fun ChatScreen(vm: ChatViewModel) {
     if (showModelSheet) {
         AlertDialog(
             onDismissRequest = { showModelSheet = false },
-            containerColor   = MaterialTheme.colorScheme.surface,
-            title = { Text("select model", style = MaterialTheme.typography.titleSmall, color = NxFg) },
+            containerColor   = NxBg2,
+            title = { Text("select model", fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NxFg) },
             text  = {
                 Column {
                     models.filter { it.installed }.forEach { m ->
@@ -448,11 +450,11 @@ fun ChatScreen(vm: ChatViewModel) {
                         ) {
                             Column {
                                 Text(m.label, color = if (m.current) NxOrange else NxFg,
-                                     style = MaterialTheme.typography.bodyMedium)
-                                Text(m.desc, color = NxFg2, style = MaterialTheme.typography.labelSmall)
+                                     fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                Text(m.desc, color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                             }
                             if (m.current) Text("active", color = NxOrange,
-                                                style = MaterialTheme.typography.labelSmall)
+                                                fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                         }
                         HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
                     }
@@ -474,7 +476,7 @@ private fun MessageBubble(msg: ChatMessage, isLoading: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
         if (!isUser) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
-                Text("nexis", style = MaterialTheme.typography.labelSmall, color = NxOrange,
+                Text("nexis", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrange,
                      modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
                 Surface(shape = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp), color = NxBg3,
                         modifier = Modifier.fillMaxWidth()) {
@@ -483,13 +485,13 @@ private fun MessageBubble(msg: ChatMessage, isLoading: Boolean = false) {
                         RenderedMessage(msg.content)
                     }
                 }
-                Text(timeLabel, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                Text(timeLabel, fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                      color = NxFg2.copy(alpha = 0.5f),
                      modifier = Modifier.padding(start = 4.dp, top = 2.dp))
             }
         } else {
             Column(horizontalAlignment = Alignment.End) {
-                Text("you", style = MaterialTheme.typography.labelSmall, color = NxFg2,
+                Text("you", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2,
                      modifier = Modifier.padding(end = 2.dp, bottom = 2.dp))
                 Surface(shape = RoundedCornerShape(8.dp, 2.dp, 8.dp, 8.dp), color = NxDim,
                         modifier = Modifier.widthIn(max = 400.dp)) {
@@ -500,18 +502,18 @@ private fun MessageBubble(msg: ChatMessage, isLoading: Boolean = false) {
                                      tint = NxOrange, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text(msg.attachName.ifEmpty { "attachment" },
-                                     style = MaterialTheme.typography.labelSmall, color = NxOrangeDim)
+                                     fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrangeDim)
                             }
                             if (msg.content.isNotBlank()) Spacer(Modifier.height(4.dp))
                         }
                         if (msg.content.isNotBlank()) {
                             Text(msg.content,
-                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                 fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                                  color = NxFg)
                         }
                     }
                 }
-                Text(timeLabel, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                Text(timeLabel, fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                      color = NxFg2.copy(alpha = 0.5f),
                      modifier = Modifier.padding(end = 4.dp, top = 2.dp))
             }
@@ -523,7 +525,7 @@ private fun MessageBubble(msg: ChatMessage, isLoading: Boolean = false) {
 private fun TypingBubble() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Column(horizontalAlignment = Alignment.Start) {
-            Text("nexis", style = MaterialTheme.typography.labelSmall, color = NxOrange,
+            Text("nexis", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxOrange,
                  modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
             Surface(shape = RoundedCornerShape(2.dp, 8.dp, 8.dp, 8.dp), color = NxBg3) {
                 TypingIndicatorDots()

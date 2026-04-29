@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
@@ -14,31 +13,31 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun NexisEyeLogo(modifier: Modifier = Modifier, size: Dp = 28.dp) {
-    Canvas(modifier = modifier.then(Modifier.also {})) {
+    Canvas(modifier = modifier.then(Modifier)) {
         val w = this.size.width
         val h = this.size.height
-        val strokeW = w * 0.06f
-        val stroke = Stroke(width = strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
-        // Triangle outline
-        val tri = Path().apply {
-            moveTo(w * 0.5f, h * 0.04f)
-            lineTo(w * 0.97f, h * 0.94f)
-            lineTo(w * 0.03f, h * 0.94f)
+        // Triangle outline (stroke only)
+        val path = Path().apply {
+            moveTo(w * 0.5f,  h * 0.089f)   // top center
+            lineTo(w * 0.946f, h * 0.875f)  // bottom right
+            lineTo(w * 0.054f, h * 0.875f)  // bottom left
             close()
         }
-        drawPath(tri, NxOrangeDim, style = stroke)
+        drawPath(path, color = NxOrange, style = Stroke(width = w * 0.036f, join = StrokeJoin.Round))
 
-        // Eye - ellipse (iris outline)
+        // Iris ellipse
         drawOval(
-            color = NxOrangeDim,
-            topLeft = Offset(w * 0.26f, h * 0.56f),
-            size = Size(w * 0.48f, h * 0.26f),
-            style = Stroke(width = strokeW * 0.85f),
+            color   = NxOrange,
+            topLeft = Offset(w * 0.34f, h * 0.57f),
+            size    = Size(w * 0.32f, h * 0.20f),
+            style   = Stroke(width = w * 0.027f),
         )
 
-        // Pupil
-        drawCircle(color = NxOrange, radius = w * 0.09f, center = Offset(w * 0.5f, h * 0.69f))
-        drawCircle(color = NxOrangeLit, radius = w * 0.04f, center = Offset(w * 0.5f, h * 0.69f))
+        // Pupil filled
+        drawCircle(color = NxOrange, radius = w * 0.107f, center = Offset(w * 0.5f, h * 0.67f))
+
+        // Pupil dark center
+        drawCircle(color = NxBg, radius = w * 0.046f, center = Offset(w * 0.5f, h * 0.67f))
     }
 }

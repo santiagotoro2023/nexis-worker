@@ -4,15 +4,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,9 +40,7 @@ import ch.toroag.nexis.worker.ui.settings.SettingsScreen
 import ch.toroag.nexis.worker.ui.voice.VoiceScreen
 import ch.toroag.nexis.worker.ui.theme.NexisTheme
 import ch.toroag.nexis.worker.ui.theme.NexisEyeLogo
-import ch.toroag.nexis.worker.ui.theme.NxOrange
-import ch.toroag.nexis.worker.ui.theme.NxFg2
-import ch.toroag.nexis.worker.ui.theme.NxDim
+import ch.toroag.nexis.worker.ui.theme.*
 import ch.toroag.nexis.worker.service.NexisBackgroundService
 import ch.toroag.nexis.worker.util.UpdateChecker
 import kotlinx.coroutines.Dispatchers
@@ -53,11 +60,11 @@ import androidx.core.content.ContextCompat
 
 // ── Startup state machine ─────────────────────────────────────────────────────
 private sealed interface StartupState {
-    object Checking   : StartupState                         // "Checking for updates…"
-    data class Downloading(val progress: Int) : StartupState // "Downloading… 42%"
-    object Installing : StartupState                         // "Installing…"
-    object NeedsPerm  : StartupState                         // one-time permission screen
-    object Ready      : StartupState                         // proceed to app
+    object Checking   : StartupState
+    data class Downloading(val progress: Int) : StartupState
+    object Installing : StartupState
+    object NeedsPerm  : StartupState
+    object Ready      : StartupState
 }
 
 /** Payload extracted from an ACTION_SEND share intent. */
@@ -81,7 +88,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Request POST_NOTIFICATIONS at runtime on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
@@ -93,14 +99,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NexisTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(modifier = Modifier.fillMaxSize(), color = NxBg) {
                     val state by _startupState
                     val share by _sharePayload
                     AnimatedContent(targetState = state, label = "startup") { s ->
                         when (s) {
                             StartupState.Ready    -> NexisApp(sharePayload = share, onShareConsumed = { _sharePayload.value = null })
                             StartupState.NeedsPerm -> PermissionSetupScreen {
-                                // User tapped "Grant" -open settings, then re-check on resume
                                 UpdateChecker.openInstallPermissionSettings(this@MainActivity)
                             }
                             else -> UpdateSplashScreen(s)
@@ -110,10 +115,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Run the update check after UI is ready
         lifecycleScope.launch(Dispatchers.IO) { runStartupSequence() }
 
-        // Start background sync service once the user is logged in
         lifecycleScope.launch {
             val prefs = PreferencesRepository.get(this@MainActivity)
             prefs.token.collect { token ->
@@ -153,11 +156,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Called when user returns from the Install Unknown Apps settings screen. */
     override fun onResume() {
         super.onResume()
         if (_startupState.value == StartupState.NeedsPerm) {
-            // Re-check permission; if granted now, retry the update flow
             if (UpdateChecker.hasInstallPermission(this)) {
                 lifecycleScope.launch(Dispatchers.IO) { runStartupSequence() }
             }
@@ -165,47 +166,31 @@ class MainActivity : ComponentActivity() {
     }
 
     private suspend fun runStartupSequence() {
-        // 1. Check for an update
         val release = UpdateChecker.checkForUpdate()
-
         if (release == null) {
-            // No update -go straight to the app
             withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
             return
         }
-
-        // 2. Update found -do we have permission to install silently?
         if (!UpdateChecker.hasInstallPermission(this)) {
             withContext(Dispatchers.Main) { _startupState.value = StartupState.NeedsPerm }
             return
         }
-
-        // 3. Download with progress
         val apkFile = UpdateChecker.downloadApk(this, release) { pct ->
             lifecycleScope.launch(Dispatchers.Main) {
                 _startupState.value = StartupState.Downloading(pct)
             }
         }
-
         if (apkFile == null) {
-            // Download failed -skip update, open app normally
             withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
             return
         }
-
-        // 4. Install silently -Android will restart the app on success
         withContext(Dispatchers.Main) { _startupState.value = StartupState.Installing }
-        delay(300) // let the UI render "Installing…" before we hand off to PackageInstaller
+        delay(300)
         val installed = runCatching { UpdateChecker.installSilently(this, apkFile) }.isSuccess
-
         if (!installed) {
-            // PackageInstaller failed to start -open app normally
             withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
             return
         }
-
-        // PackageInstaller handles the rest asynchronously via InstallResultReceiver.
-        // If it doesn't restart us within 8 s, fall through so user isn't stuck.
         delay(8000)
         withContext(Dispatchers.Main) { _startupState.value = StartupState.Ready }
     }
@@ -215,97 +200,136 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun UpdateSplashScreen(state: StartupState) {
-    Column(
-        modifier              = Modifier.fillMaxSize().padding(40.dp),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment   = Alignment.CenterHorizontally,
+    Box(
+        modifier         = Modifier.fillMaxSize().background(NxBg),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            "NEXIS",
-            style = MaterialTheme.typography.headlineLarge,
-            color = NxOrange,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "NX-WRK · BUILD 1.0.0",
-            style = MaterialTheme.typography.labelSmall,
-            color = NxFg2,
-        )
-        Spacer(Modifier.height(40.dp))
+        Column(
+            modifier            = Modifier.padding(40.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            NexisEyeLogo(size = 56.dp)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "NEXIS",
+                fontFamily    = FontFamily.Monospace,
+                fontSize      = 26.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.4.sp,
+                color         = NxFg,
+            )
+            Text(
+                "NX-WRK · BUILD 1.0.6",
+                fontFamily    = FontFamily.Monospace,
+                fontSize      = 9.sp,
+                letterSpacing = 0.15.sp,
+                color         = NxFg2,
+            )
+            Spacer(Modifier.height(40.dp))
 
-        when (state) {
-            StartupState.Checking -> {
-                CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
-                Spacer(Modifier.height(16.dp))
-                Text("checking for updates…",
-                     style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            when (state) {
+                StartupState.Checking -> {
+                    CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
+                    Spacer(Modifier.height(16.dp))
+                    Text("CHECKING FOR UPDATES",
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                         letterSpacing = 0.15.sp, color = NxFg2)
+                }
+                is StartupState.Downloading -> {
+                    LinearProgressIndicator(
+                        progress    = { state.progress / 100f },
+                        modifier    = Modifier.fillMaxWidth(),
+                        color       = NxOrange,
+                        trackColor  = NxBorder,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text("DOWNLOADING UPDATE… ${state.progress}%",
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                         letterSpacing = 0.15.sp, color = NxFg2)
+                }
+                StartupState.Installing -> {
+                    CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
+                    Spacer(Modifier.height(16.dp))
+                    Text("INSTALLING UPDATE",
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                         letterSpacing = 0.15.sp, color = NxFg2)
+                }
+                else -> {}
             }
-            is StartupState.Downloading -> {
-                LinearProgressIndicator(
-                    progress    = { state.progress / 100f },
-                    modifier    = Modifier.fillMaxWidth(),
-                    color       = NxOrange,
-                    trackColor  = MaterialTheme.colorScheme.surfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                Text("downloading update… ${state.progress}%",
-                     style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            StartupState.Installing -> {
-                CircularProgressIndicator(color = NxOrange, strokeWidth = 2.dp)
-                Spacer(Modifier.height(16.dp))
-                Text("installing update…",
-                     style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            else -> {}
         }
     }
 }
 
-// ── One-time permission setup ─────────────────────────────────────────────────
+// ── Permission setup ──────────────────────────────────────────────────────────
 
 @Composable
 private fun PermissionSetupScreen(onGrant: () -> Unit) {
-    Column(
-        modifier              = Modifier.fillMaxSize().padding(40.dp),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment   = Alignment.CenterHorizontally,
+    Box(
+        modifier         = Modifier.fillMaxSize().background(NxBg),
+        contentAlignment = Alignment.Center,
     ) {
-        Text("One-time setup", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "NeXiS needs permission to install updates automatically.\n\n" +
-            "Tap \"Grant\" below, enable \"Allow from this source\" in the next screen, " +
-            "then come back -this is the only time you'll ever need to do this.",
-            style     = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color     = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(32.dp))
-        Button(onClick = onGrant, modifier = Modifier.fillMaxWidth()) {
-            Text("Grant permission")
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp)
+                .background(NxBg3, RoundedCornerShape(16.dp))
+                .border(1.dp, NxBorder, RoundedCornerShape(16.dp))
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "ONE-TIME SETUP",
+                fontFamily    = FontFamily.Monospace,
+                fontSize      = 9.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.18.sp,
+                color         = NxOrange,
+                modifier      = Modifier.padding(bottom = 12.dp),
+            )
+            Text(
+                "NeXiS needs permission to install updates automatically.\n\n" +
+                "Tap GRANT below, enable 'Allow from this source' in the next screen, " +
+                "then come back — this is the only time you will need to do this.",
+                fontFamily = FontFamily.Monospace,
+                fontSize   = 13.sp,
+                color      = NxFg2,
+                textAlign  = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick  = onGrant,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape    = RoundedCornerShape(12.dp),
+                colors   = ButtonDefaults.buttonColors(containerColor = NxOrange, contentColor = NxBg),
+            ) {
+                Text(
+                    "GRANT PERMISSION",
+                    fontFamily    = FontFamily.Monospace,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.15.sp,
+                    fontSize      = 11.sp,
+                )
+            }
         }
     }
 }
 
 // ── Nav rail destinations ─────────────────────────────────────────────────────
 
-private data class NavRailItem(
+private data class NavDestination(
     val route: String,
     val label: String,
-    val icon:  androidx.compose.ui.graphics.vector.ImageVector,
+    val icon:  ImageVector,
 )
 
-private val railItems = listOf(
-    NavRailItem("chat",       "chat",       Icons.Default.Chat),
-    NavRailItem("remote",     "remote",     Icons.Default.Computer),
-    NavRailItem("schedules",  "schedules",  Icons.Default.Schedule),
-    NavRailItem("devices",    "devices",    Icons.Default.Devices),
-    NavRailItem("hypervisor", "hypervisor", Icons.Default.Dns),
-    NavRailItem("settings",   "settings",   Icons.Default.Settings),
+private val navDestinations = listOf(
+    NavDestination("chat",       "CHAT",       Icons.Default.Chat),
+    NavDestination("remote",     "REMOTE",     Icons.Default.Computer),
+    NavDestination("schedules",  "SCHEDULES",  Icons.Default.Schedule),
+    NavDestination("devices",    "DEVICES",    Icons.Default.Devices),
+    NavDestination("hypervisor", "HYPERVISOR", Icons.Default.Dns),
+    NavDestination("settings",   "SETTINGS",   Icons.Default.Settings),
 )
 
 // ── Main app nav ──────────────────────────────────────────────────────────────
@@ -321,66 +345,27 @@ private fun NexisApp(
     val token         by prefs.token.collectAsState(initial = null)
 
     val startDest = when {
-        token == null        -> "loading"   // still loading from DataStore
+        token == null        -> "loading"
         token!!.isNotEmpty() -> "chat"
         else                 -> "login"
     }
 
-    // Observe current route to highlight the rail
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
-
-    // Show rail only when logged in (not on login/loading screens)
     val showRail = currentRoute != null && currentRoute != "login" && currentRoute != "loading"
 
-    Row(Modifier.fillMaxSize()) {
+    Row(Modifier.fillMaxSize().background(NxBg)) {
         if (showRail) {
-            NavigationRail(
-                containerColor  = MaterialTheme.colorScheme.surface,
-                contentColor    = NxFg2,
-                header = {
-                    NexisEyeLogo(
-                        modifier = Modifier.size(28.dp).padding(top = 4.dp),
-                    )
+            NexisNavRail(
+                currentRoute = currentRoute,
+                onNavigate   = { route ->
+                    navController.navigate(route) {
+                        popUpTo("chat") { saveState = true }
+                        launchSingleTop = true
+                        restoreState    = true
+                    }
                 },
-            ) {
-                railItems.forEach { item ->
-                    val selected = currentRoute == item.route ||
-                        (item.route == "chat" && currentRoute == "voice")
-                    NavigationRailItem(
-                        selected = selected,
-                        onClick  = {
-                            if (!selected) {
-                                navController.navigate(item.route) {
-                                    popUpTo("chat") { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState    = true
-                                }
-                            }
-                        },
-                        icon  = {
-                            Icon(
-                                item.icon,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        label = {
-                            Text(
-                                item.label,
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        },
-                        colors = NavigationRailItemDefaults.colors(
-                            selectedIconColor       = NxOrange,
-                            selectedTextColor       = NxOrange,
-                            indicatorColor          = NxDim,
-                            unselectedIconColor     = NxFg2,
-                            unselectedTextColor     = NxFg2,
-                        ),
-                    )
-                }
-            }
+            )
         }
 
         NavHost(
@@ -389,8 +374,7 @@ private fun NexisApp(
             modifier         = Modifier.weight(1f).fillMaxHeight(),
         ) {
             composable("loading") {
-                // Momentary blank while DataStore resolves; token state updates will trigger recompose
-                Box(Modifier.fillMaxSize())
+                Box(Modifier.fillMaxSize().background(NxBg))
             }
             composable("login") {
                 LoginScreen(
@@ -453,6 +437,57 @@ private fun NexisApp(
             composable("hypervisor") {
                 HypervisorScreen(onBack = { navController.popBackStack() })
             }
+        }
+    }
+}
+
+// ── NavigationRail ────────────────────────────────────────────────────────────
+
+@Composable
+private fun NexisNavRail(
+    currentRoute: String?,
+    onNavigate:   (String) -> Unit,
+) {
+    NavigationRail(
+        containerColor  = NxBg2,
+        contentColor    = NxFg2,
+        modifier        = Modifier.border(
+            width = 1.dp,
+            color = NxBorder,
+            shape = RoundedCornerShape(0.dp),
+        ),
+        header = {
+            Spacer(Modifier.height(8.dp))
+            NexisEyeLogo(size = 32.dp, modifier = Modifier.padding(vertical = 8.dp))
+            Spacer(Modifier.height(4.dp))
+        },
+    ) {
+        navDestinations.forEach { dest ->
+            val selected = currentRoute == dest.route ||
+                (dest.route == "chat" && currentRoute == "voice")
+            NavigationRailItem(
+                selected = selected,
+                onClick  = { if (!selected) onNavigate(dest.route) },
+                icon     = {
+                    Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(20.dp))
+                },
+                label    = {
+                    Text(
+                        dest.label,
+                        fontFamily    = FontFamily.Monospace,
+                        fontSize      = 10.sp,
+                        letterSpacing = 0.12.sp,
+                        fontWeight    = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    )
+                },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor   = NxOrange,
+                    selectedTextColor   = NxOrange,
+                    indicatorColor      = NxOrange.copy(alpha = 0.10f),
+                    unselectedIconColor = NxFg2,
+                    unselectedTextColor = NxFg2,
+                ),
+            )
         }
     }
 }

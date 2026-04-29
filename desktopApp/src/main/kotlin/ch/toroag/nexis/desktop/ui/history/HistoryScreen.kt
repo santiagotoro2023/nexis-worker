@@ -1,5 +1,6 @@
 package ch.toroag.nexis.desktop.ui.history
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,12 +32,12 @@ fun HistoryScreen(vm: HistoryViewModel) {
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
-            containerColor   = MaterialTheme.colorScheme.surface,
+            containerColor   = NxBg2,
             title = { Text("clear history", color = NxFg) },
             text  = { Text("Clear the conversation history? This starts a fresh context.", color = NxFg2) },
             confirmButton = {
                 TextButton(onClick = { vm.clearHistory(); showClearConfirm = false }) {
-                    Text("clear", color = MaterialTheme.colorScheme.error)
+                    Text("clear", color = NxRed)
                 }
             },
             dismissButton = {
@@ -47,9 +48,9 @@ fun HistoryScreen(vm: HistoryViewModel) {
         )
     }
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().background(NxBg).padding(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("conversation history", style = MaterialTheme.typography.titleMedium, color = NxFg,
+            Text("conversation history", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NxFg,
                  modifier = Modifier.weight(1f))
             IconButton(onClick = { vm.loadHistory() }) {
                 Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2)
@@ -61,7 +62,7 @@ fun HistoryScreen(vm: HistoryViewModel) {
         Spacer(Modifier.height(12.dp))
 
         if (error != null) {
-            Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(error!!, color = NxRed, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
         }
 
@@ -71,7 +72,7 @@ fun HistoryScreen(vm: HistoryViewModel) {
             }
         } else if (history.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("no history", color = NxFg2, style = MaterialTheme.typography.bodySmall)
+                Text("no history", color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
             }
         } else {
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,7 +88,7 @@ fun HistoryScreen(vm: HistoryViewModel) {
                         ) {
                             Text(
                                 if (isUser) "you" else "nexis",
-                                style    = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace, fontSize = 10.sp,
                                 color    = if (isUser) NxFg2 else NxOrange,
                                 modifier = Modifier.padding(bottom = 2.dp,
                                                             start  = if (isUser) 0.dp else 2.dp,
@@ -100,7 +101,7 @@ fun HistoryScreen(vm: HistoryViewModel) {
                             ) {
                                 Text(
                                     entry.content,
-                                    style    = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace, fontSize = 11.sp,
                                     color    = NxFg,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 )

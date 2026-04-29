@@ -1,5 +1,7 @@
 package ch.toroag.nexis.worker.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,27 +18,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ch.toroag.nexis.worker.ui.theme.NxBorder
-import ch.toroag.nexis.worker.ui.theme.NxFg
-import ch.toroag.nexis.worker.ui.theme.NxFg2
-import ch.toroag.nexis.worker.ui.theme.NxOrange
-import ch.toroag.nexis.worker.ui.theme.NxOrangeDim
+import ch.toroag.nexis.worker.ui.theme.*
 import ch.toroag.nexis.worker.util.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack:           () -> Unit,
-    onLogout:         () -> Unit,
+    onBack:                 () -> Unit,
+    onLogout:               () -> Unit,
     onNavigateToMemories:   () -> Unit = {},
     onNavigateToHistory:    () -> Unit = {},
     onNavigateToSchedules:  () -> Unit = {},
@@ -59,328 +58,239 @@ fun SettingsScreen(
     var updateState    by remember { mutableStateOf<String?>(null) }
     var updateChecking by remember { mutableStateOf(false) }
     var updateRelease  by remember { mutableStateOf<UpdateChecker.Release?>(null) }
+    var reAuthPw       by remember { mutableStateOf("") }
 
-    var reAuthPw by remember { mutableStateOf("") }
-
-    var haUrlInput       by remember(haConfig) { mutableStateOf(haConfig?.url      ?: "") }
-    var haUsernameInput  by remember(haConfig) { mutableStateOf(haConfig?.username  ?: "") }
-    var haPasswordInput  by remember(haConfig) { mutableStateOf(haConfig?.password  ?: "") }
+    var haUrlInput        by remember(haConfig) { mutableStateOf(haConfig?.url      ?: "") }
+    var haUsernameInput   by remember(haConfig) { mutableStateOf(haConfig?.username  ?: "") }
+    var haPasswordInput   by remember(haConfig) { mutableStateOf(haConfig?.password  ?: "") }
     var haPasswordVisible by remember { mutableStateOf(false) }
-    var haMainInput      by remember(haConfig) { mutableStateOf(haConfig?.mainSwitch     ?: "switch.homelab_main_switch") }
-    var haCompInput     by remember(haConfig) { mutableStateOf(haConfig?.computerSwitch ?: "switch.homelab_computer_switch") }
+    var haMainInput       by remember(haConfig) { mutableStateOf(haConfig?.mainSwitch     ?: "switch.homelab_main_switch") }
+    var haCompInput       by remember(haConfig) { mutableStateOf(haConfig?.computerSwitch ?: "switch.homelab_computer_switch") }
 
     LaunchedEffect(status) {
-        if (status != null) {
-            kotlinx.coroutines.delay(3000)
-            vm.clearStatus()
-        }
+        if (status != null) { kotlinx.coroutines.delay(3000); vm.clearStatus() }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text("settings", style = MaterialTheme.typography.titleMedium, color = NxFg)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = NxFg2)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedContainerColor   = NxBg2,
+        unfocusedContainerColor = NxBg2,
+        focusedBorderColor      = NxOrangeDim,
+        unfocusedBorderColor    = NxBorder,
+        focusedTextColor        = NxFg,
+        unfocusedTextColor      = NxFg,
+        cursorColor             = NxOrange,
+    )
+
+    Column(Modifier.fillMaxSize().background(NxBg).systemBarsPadding()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = NxFg2, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("SETTINGS", fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                 fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxFg2)
         }
-    ) { padding ->
+        HorizontalDivider(color = NxBorder, thickness = 1.dp)
+
         Column(
-            Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-
-            // Controller URL
-            SettingsCard(label = "controller") {
-                Text(
-                    baseUrl.ifEmpty { "not configured" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (baseUrl.isEmpty()) NxFg2 else NxFg,
-                )
+            // Controller
+            NxCard("CONTROLLER") {
+                Text(baseUrl.ifEmpty { "not configured" }, fontFamily = FontFamily.Monospace,
+                     fontSize = 12.sp, color = if (baseUrl.isEmpty()) NxFg2 else NxFg)
             }
 
-            // Controller health / dashboard
-            SettingsCard(label = "controller health") {
+            // Health
+            NxCard("CONTROLLER HEALTH") {
                 if (healthLoading) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            modifier  = Modifier.size(14.dp),
-                            color     = NxOrange,
-                            strokeWidth = 2.dp,
-                        )
+                        CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text("checking...", style = MaterialTheme.typography.bodySmall, color = NxFg2)
+                        Text("checking…", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                     }
                 } else if (health == null) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment     = Alignment.CenterVertically,
-                    ) {
-                        Text("unreachable", style = MaterialTheme.typography.bodySmall, color = NxFg2)
-                        IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Refresh, "Retry", tint = NxFg2, modifier = Modifier.size(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("UNREACHABLE", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
+                        IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Refresh, null, tint = NxFg2, modifier = Modifier.size(16.dp))
                         }
                     }
                 } else {
                     val h = health!!
-                    val uptimeStr = formatUptime(h.uptimeSeconds)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             HealthRow("model",    h.modelLabel)
-                            HealthRow("voice",    if (h.voice) "on  [${h.voiceModel}]" else "off")
+                            HealthRow("voice",    if (h.voice) "on [${h.voiceModel}]" else "off")
                             HealthRow("memories", h.memories.toString())
                             HealthRow("sessions", h.sessions.toString())
                             HealthRow("context",  "${h.histLen} messages")
-                            HealthRow("uptime",   uptimeStr)
+                            HealthRow("uptime",   formatUptime(h.uptimeSeconds))
                         }
-                        IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Refresh, "Refresh", tint = NxFg2, modifier = Modifier.size(16.dp))
+                        IconButton(onClick = { vm.refreshHealth() }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Refresh, null, tint = NxFg2, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
             }
 
-            // Certificate info
-            SettingsCard(label = "certificate") {
+            // Certificate
+            NxCard("CERTIFICATE") {
                 if (certPin != null) {
-                    Text(
-                        "pinned -connection trusted",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NxOrange,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        certPin!!,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize   = 10.sp,
-                        ),
-                        color = NxFg2,
-                    )
+                    Text("PINNED — CONNECTION TRUSTED", fontFamily = FontFamily.Monospace,
+                         fontSize = 10.sp, letterSpacing = 0.15.sp, color = NxOrange)
+                    Spacer(Modifier.height(6.dp))
+                    Text(certPin!!, fontFamily = FontFamily.Monospace, fontSize = 9.sp,
+                         lineHeight = 14.sp, color = NxFg2)
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
                         onClick  = { vm.forgetCertificate() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape    = RoundedCornerShape(4.dp),
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        shape    = RoundedCornerShape(8.dp),
                         colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg2),
                         border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
-                    ) { Text("forget certificate") }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "use this if the server cert was regenerated -next connection will re-pair automatically.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NxFg2,
-                    )
+                    ) { Text("FORGET CERTIFICATE", fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Use this if the server cert was regenerated — next connection will re-pair automatically.",
+                         fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2, lineHeight = 15.sp)
                 } else {
-                    Text(
-                        "no certificate pinned -will pin on next connection.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NxFg2,
-                    )
+                    Text("No certificate pinned — will pin on next connection.",
+                         fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2)
                 }
             }
 
             // Tools navigation
-            SettingsCard(label = "tools") {
-                NavRow("memories", onNavigateToMemories)
-                Spacer(Modifier.height(8.dp))
-                NavRow("conversation history", onNavigateToHistory)
-                Spacer(Modifier.height(8.dp))
-                NavRow("schedules", onNavigateToSchedules)
-                Spacer(Modifier.height(8.dp))
-                NavRow("device inventory", onNavigateToDevices)
-                Spacer(Modifier.height(8.dp))
-                NavRow("hypervisor node", onNavigateToHypervisor)
+            NxCard("TOOLS") {
+                NavRow("MEMORIES",            onNavigateToMemories)
+                HorizontalDivider(color = NxBorder, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                NavRow("CONVERSATION HISTORY", onNavigateToHistory)
+                HorizontalDivider(color = NxBorder, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                NavRow("SCHEDULES",            onNavigateToSchedules)
+                HorizontalDivider(color = NxBorder, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                NavRow("DEVICE INVENTORY",     onNavigateToDevices)
+                HorizontalDivider(color = NxBorder, thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                NavRow("HYPERVISOR NODE",      onNavigateToHypervisor)
             }
 
             // Home Assistant
-            SettingsCard(label = "home assistant") {
-                val fieldColors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor      = NxOrangeDim, unfocusedBorderColor = NxBorder,
-                    focusedTextColor        = NxFg,        unfocusedTextColor   = NxFg,
-                    cursorColor             = NxOrange,
-                    focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
-                Text("credentials for local Home Assistant instance.",
-                     style = MaterialTheme.typography.bodySmall, color = NxFg2)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(haUrlInput, { haUrlInput = it },
-                    label = { Text("HA URL (e.g. http://192.168.1.61:8123)", color = NxFg2) },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(6.dp))
-                OutlinedTextField(haUsernameInput, { haUsernameInput = it },
-                    label = { Text("username", color = NxFg2) },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(6.dp))
-                OutlinedTextField(haPasswordInput, { haPasswordInput = it },
-                    label = { Text("password", color = NxFg2) },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    visualTransformation = if (haPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { haPasswordVisible = !haPasswordVisible }, modifier = Modifier.size(24.dp)) {
-                            Icon(if (haPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                 null, Modifier.size(16.dp), tint = NxFg2)
-                        }
-                    })
-                Spacer(Modifier.height(6.dp))
-                OutlinedTextField(haMainInput, { haMainInput = it },
-                    label = { Text("main switch entity ID", color = NxFg2) },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(6.dp))
-                OutlinedTextField(haCompInput, { haCompInput = it },
-                    label = { Text("computer switch entity ID", color = NxFg2) },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(4.dp), colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
+            NxCard("HOME ASSISTANT") {
+                Text("Credentials for local Home Assistant instance.",
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2,
+                     modifier = Modifier.padding(bottom = 10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NxField("HA URL", haUrlInput, { haUrlInput = it }, fieldColors)
+                    NxField("USERNAME", haUsernameInput, { haUsernameInput = it }, fieldColors)
+                    OutlinedTextField(
+                        value         = haPasswordInput,
+                        onValueChange = { haPasswordInput = it },
+                        modifier      = Modifier.fillMaxWidth(),
+                        singleLine    = true,
+                        shape         = RoundedCornerShape(10.dp),
+                        label         = { Text("PASSWORD", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = NxFg2) },
+                        colors        = fieldColors,
+                        textStyle     = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = NxFg),
+                        visualTransformation = if (haPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon  = {
+                            IconButton(onClick = { haPasswordVisible = !haPasswordVisible }, modifier = Modifier.size(24.dp)) {
+                                Icon(if (haPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                     null, Modifier.size(16.dp), tint = NxFg2)
+                            }
+                        },
+                    )
+                    NxField("MAIN SWITCH ENTITY", haMainInput, { haMainInput = it }, fieldColors)
+                    NxField("COMPUTER SWITCH ENTITY", haCompInput, { haCompInput = it }, fieldColors)
+                }
+                Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick  = { vm.testHaConnection() },
                         modifier = Modifier.weight(1f).height(40.dp),
-                        shape    = RoundedCornerShape(4.dp),
+                        shape    = RoundedCornerShape(8.dp),
                         enabled  = !haTestLoading,
                         colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxFg),
                         border   = androidx.compose.foundation.BorderStroke(1.dp, NxBorder),
                     ) {
                         if (haTestLoading) CircularProgressIndicator(Modifier.size(14.dp), color = NxOrange, strokeWidth = 2.dp)
-                        else Text("test connection", style = MaterialTheme.typography.labelMedium)
+                        else Text("TEST", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                     }
                     Button(
-                        onClick = {
-                            vm.saveHaConfig(haUrlInput, haUsernameInput, haPasswordInput, haMainInput, haCompInput)
-                        },
+                        onClick  = { vm.saveHaConfig(haUrlInput, haUsernameInput, haPasswordInput, haMainInput, haCompInput) },
                         modifier = Modifier.weight(1f).height(40.dp),
-                        shape    = RoundedCornerShape(4.dp),
-                        colors   = ButtonDefaults.buttonColors(containerColor = NxOrangeDim,
-                            contentColor = MaterialTheme.colorScheme.background),
-                    ) { Text("save", style = MaterialTheme.typography.labelMedium) }
+                        shape    = RoundedCornerShape(8.dp),
+                        colors   = ButtonDefaults.buttonColors(containerColor = NxOrange, contentColor = NxBg),
+                    ) { Text("SAVE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
                 }
                 if (haTestResult != null) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(haTestResult!!,
-                         style = MaterialTheme.typography.labelSmall,
-                         color = if (haTestResult!!.startsWith("✓")) NxOrange else MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(6.dp))
+                    Text(haTestResult!!, fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                         color = if (haTestResult!!.startsWith("✓")) NxGreen else NxRed)
                 }
             }
 
             // Re-authenticate
-            SettingsCard(label = "re-authenticate") {
-                Text(
-                    "use this if you changed your nexis password.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NxFg2,
-                )
-                Spacer(Modifier.height(8.dp))
+            NxCard("RE-AUTHENTICATE") {
+                Text("Use this if you changed your Nexis password.",
+                     fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxFg2,
+                     modifier = Modifier.padding(bottom = 10.dp))
                 OutlinedTextField(
                     value         = reAuthPw,
                     onValueChange = { reAuthPw = it },
-                    label         = { Text("new password", color = NxFg2) },
                     modifier      = Modifier.fillMaxWidth(),
                     singleLine    = true,
-                    shape         = RoundedCornerShape(4.dp),
-                    colors        = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor      = NxOrangeDim,
-                        unfocusedBorderColor    = NxBorder,
-                        focusedTextColor        = NxFg,
-                        unfocusedTextColor      = NxFg,
-                        cursorColor             = NxOrange,
-                        focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    shape         = RoundedCornerShape(10.dp),
+                    label         = { Text("NEW PASSWORD", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = NxFg2) },
+                    colors        = fieldColors,
+                    textStyle     = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = NxFg),
                     visualTransformation = PasswordVisualTransformation(),
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 Button(
                     onClick  = { vm.reAuthenticate(reAuthPw) { reAuthPw = "" } },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     enabled  = reAuthPw.isNotBlank(),
-                    shape    = RoundedCornerShape(4.dp),
-                    colors   = ButtonDefaults.buttonColors(
-                        containerColor = NxOrangeDim,
-                        contentColor   = MaterialTheme.colorScheme.background,
-                    ),
-                ) { Text("re-authenticate") }
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = NxOrange, contentColor = NxBg),
+                ) {
+                    Text("RE-AUTHENTICATE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                         letterSpacing = 0.15.sp, fontSize = 11.sp)
+                }
             }
 
             if (status != null) {
-                Text(status!!, color = NxOrange, style = MaterialTheme.typography.bodySmall)
+                Text(status!!, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = NxOrange)
             }
 
-            // App update section
-            SettingsCard(label = "app update") {
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                ) {
-                    Button(
-                        onClick  = {
-                            scope.launch {
-                                updateChecking = true
-                                updateState    = null
-                                updateRelease  = null
-                                val release = withContext(Dispatchers.IO) {
-                                    UpdateChecker.checkForUpdate()
-                                }
-                                updateRelease  = release
-                                updateState    = if (release == null) "up to date"
-                                                 else "update available: ${release.tag}"
-                                updateChecking = false
-                            }
-                        },
-                        modifier = Modifier.weight(1f).height(36.dp),
-                        enabled  = !updateChecking,
-                        shape    = RoundedCornerShape(4.dp),
-                        colors   = ButtonDefaults.buttonColors(
-                            containerColor = NxOrangeDim,
-                            contentColor   = MaterialTheme.colorScheme.background,
-                        ),
-                    ) {
-                        if (updateChecking) {
-                            CircularProgressIndicator(
-                                modifier    = Modifier.size(14.dp),
-                                color       = MaterialTheme.colorScheme.background,
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Text(
-                                "CHECK FOR UPDATE",
-                                style = MaterialTheme.typography.labelSmall,
-                            )
+            // App update
+            NxCard("APP UPDATE") {
+                Button(
+                    onClick  = {
+                        scope.launch {
+                            updateChecking = true; updateState = null; updateRelease = null
+                            val release = withContext(Dispatchers.IO) { UpdateChecker.checkForUpdate() }
+                            updateRelease  = release
+                            updateState    = if (release == null) "Up to date" else "Update available: ${release.tag}"
+                            updateChecking = false
                         }
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    enabled  = !updateChecking,
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = NxOrangeDim, contentColor = NxBg),
+                ) {
+                    if (updateChecking) CircularProgressIndicator(Modifier.size(16.dp), color = NxBg, strokeWidth = 2.dp)
+                    else Text("CHECK FOR UPDATE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                              letterSpacing = 0.15.sp, fontSize = 11.sp)
                 }
                 if (updateState != null) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        updateState!!,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (updateRelease != null) NxOrange else NxFg2,
-                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(updateState!!, fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                         color = if (updateRelease != null) NxOrange else NxFg2)
                 }
                 if (updateRelease != null) {
                     Spacer(Modifier.height(8.dp))
@@ -388,102 +298,100 @@ fun SettingsScreen(
                         onClick  = {
                             val release = updateRelease ?: return@Button
                             scope.launch {
-                                updateChecking = true
-                                updateState    = "downloading…"
+                                updateChecking = true; updateState = "Downloading…"
                                 val apk = withContext(Dispatchers.IO) {
                                     UpdateChecker.downloadApk(context, release) { pct ->
-                                        scope.launch(Dispatchers.Main) {
-                                            updateState = "downloading… $pct%"
-                                        }
+                                        scope.launch(Dispatchers.Main) { updateState = "Downloading… $pct%" }
                                     }
                                 }
                                 if (apk != null) {
-                                    updateState = "installing…"
-                                    withContext(Dispatchers.IO) {
-                                        runCatching { UpdateChecker.installSilently(context, apk) }
-                                    }
+                                    updateState = "Installing…"
+                                    withContext(Dispatchers.IO) { runCatching { UpdateChecker.installSilently(context, apk) } }
                                 } else {
-                                    updateState = "download failed"
+                                    updateState = "Download failed"
                                 }
                                 updateChecking = false
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().height(36.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                         enabled  = !updateChecking,
-                        shape    = RoundedCornerShape(4.dp),
-                        colors   = ButtonDefaults.buttonColors(
-                            containerColor = NxOrange,
-                            contentColor   = MaterialTheme.colorScheme.background,
-                        ),
+                        shape    = RoundedCornerShape(12.dp),
+                        colors   = ButtonDefaults.buttonColors(containerColor = NxOrange, contentColor = NxBg),
                     ) {
-                        Text(
-                            "DOWNLOAD & INSTALL",
-                            style = MaterialTheme.typography.labelSmall,
-                        )
+                        Text("DOWNLOAD & INSTALL", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                             letterSpacing = 0.15.sp, fontSize = 11.sp)
                     }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
             OutlinedButton(
                 onClick  = { vm.logout(onLogout) },
-                modifier = Modifier.fillMaxWidth(),
-                shape    = RoundedCornerShape(4.dp),
-                colors   = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error),
-                border   = androidx.compose.foundation.BorderStroke(
-                    1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-            ) { Text("disconnect") }
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape    = RoundedCornerShape(12.dp),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = NxRed),
+                border   = androidx.compose.foundation.BorderStroke(1.dp, NxRed.copy(alpha = 0.4f)),
+            ) {
+                Text("DISCONNECT", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                     letterSpacing = 0.15.sp, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-private fun NavRow(label: String, onClick: () -> Unit) {
-    Row(
+private fun NxCard(label: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment     = Alignment.CenterVertically,
+            .background(NxBg3, RoundedCornerShape(16.dp))
+            .border(1.dp, NxBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = NxFg)
-        Icon(
-            Icons.Default.KeyboardArrowRight,
-            contentDescription = null,
-            tint     = NxFg2,
-            modifier = Modifier.size(18.dp),
-        )
+        Text(label, fontFamily = FontFamily.Monospace, fontSize = 9.sp,
+             fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, color = NxFg2,
+             modifier = Modifier.padding(bottom = 12.dp))
+        content()
     }
 }
 
 @Composable
-private fun SettingsCard(label: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(0.dp),
+private fun NxField(
+    label: String, value: String, onValueChange: (String) -> Unit,
+    colors: TextFieldColors,
+) {
+    OutlinedTextField(
+        value         = value,
+        onValueChange = onValueChange,
+        modifier      = Modifier.fillMaxWidth(),
+        singleLine    = true,
+        shape         = RoundedCornerShape(10.dp),
+        label         = { Text(label, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = NxFg2) },
+        colors        = colors,
+        textStyle     = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = NxFg),
+    )
+}
+
+@Composable
+private fun NavRow(label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment     = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = NxOrange,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        HorizontalDivider(color = NxBorder, thickness = 0.5.dp)
-        Spacer(Modifier.height(8.dp))
-        content()
-        Spacer(Modifier.height(4.dp))
+        Text(label, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NxFg)
+        Icon(Icons.Default.KeyboardArrowRight, null, tint = NxFg2, modifier = Modifier.size(18.dp))
     }
 }
 
 @Composable
 private fun HealthRow(label: String, value: String) {
     Row {
-        Text("$label  ", style = MaterialTheme.typography.labelSmall, color = NxFg2)
-        Text(value, style = MaterialTheme.typography.labelSmall, color = NxFg)
+        Text("$label  ", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg2)
+        Text(value, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = NxFg)
     }
 }
 
@@ -491,9 +399,5 @@ private fun formatUptime(seconds: Int): String {
     val h = seconds / 3600
     val m = (seconds % 3600) / 60
     val s = seconds % 60
-    return when {
-        h > 0  -> "${h}h ${m}m"
-        m > 0  -> "${m}m ${s}s"
-        else   -> "${s}s"
-    }
+    return when { h > 0 -> "${h}h ${m}m"; m > 0 -> "${m}m ${s}s"; else -> "${s}s" }
 }
