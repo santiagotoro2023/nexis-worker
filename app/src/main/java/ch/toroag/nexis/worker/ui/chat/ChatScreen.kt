@@ -46,6 +46,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -228,6 +230,47 @@ fun ChatScreen(
             }
         }
         HorizontalDivider(color = NxBorder, thickness = 1.dp)
+        val isAtBottom by remember {
+            derivedStateOf {
+                val info = listState.layoutInfo
+                val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                last >= info.totalItemsCount - 1
+            }
+        }
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .background(NxBg),
+        ) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state               = listState,
+                contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(messages, key = { it.id }) { msg ->
+                    val showLoading = isStreaming && msg.id == messages.lastOrNull()?.id && msg.content.isEmpty()
+                    MessageBubble(msg, context, isLoading = showLoading)
+                }
+                if (externalTyping && !isStreaming) {
+                    item { TypingBubble() }
+                }
+            }
+            if (!isAtBottom && messages.isNotEmpty()) {
+                SmallFloatingActionButton(
+                    onClick          = { scope.launch { listState.animateScrollToItem(messages.size - 1) } },
+                    modifier         = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(12.dp),
+                    containerColor   = NxBg2,
+                    contentColor     = NxFg2,
+                ) {
+                    Icon(Icons.Default.KeyboardArrowDown, "Scroll to bottom",
+                         modifier = Modifier.size(20.dp))
+                }
+            }
+        }
             Column(
                 Modifier.windowInsetsPadding(
                     WindowInsets.ime.union(WindowInsets.navigationBars)
@@ -439,47 +482,6 @@ fun ChatScreen(
                     }
                 }
             }
-        val isAtBottom by remember {
-            derivedStateOf {
-                val info = listState.layoutInfo
-                val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                last >= info.totalItemsCount - 1
-            }
-        }
-        Box(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(NxBg),
-        ) {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                state               = listState,
-                contentPadding      = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(messages, key = { it.id }) { msg ->
-                    val showLoading = isStreaming && msg.id == messages.lastOrNull()?.id && msg.content.isEmpty()
-                    MessageBubble(msg, context, isLoading = showLoading)
-                }
-                if (externalTyping && !isStreaming) {
-                    item { TypingBubble() }
-                }
-            }
-            if (!isAtBottom && messages.isNotEmpty()) {
-                SmallFloatingActionButton(
-                    onClick          = { scope.launch { listState.animateScrollToItem(messages.size - 1) } },
-                    modifier         = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(12.dp),
-                    containerColor   = NxBg2,
-                    contentColor     = NxFg2,
-                ) {
-                    Icon(Icons.Default.KeyboardArrowDown, "Scroll to bottom",
-                         modifier = Modifier.size(20.dp))
-                }
-            }
-        }
     }
 
     if (showClearConfirm) {
