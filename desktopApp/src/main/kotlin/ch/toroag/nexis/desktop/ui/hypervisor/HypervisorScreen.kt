@@ -39,7 +39,7 @@ fun HypervisorScreen(vm: HypervisorViewModel) {
                 modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Text("HYPERVISOR NODE", color = NxOrange, fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                        fontFamily = FontFamily.Monospace, fontSize = 13.sp, letterSpacing = 2.sp)
                     Text("NX-HV · VIRTUAL INFRASTRUCTURE", color = NxFg2,
                         fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
                 }
@@ -92,7 +92,7 @@ private fun ConnectPanel(onConnect: (String, String, String) -> Unit) {
         Icon(Icons.Default.Dns, contentDescription = null, tint = NxOrange, modifier = Modifier.size(48.dp))
         Spacer(Modifier.height(16.dp))
         Text("HYPERVISOR NODE", color = NxOrange, fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            fontFamily = FontFamily.Monospace, fontSize = 13.sp, letterSpacing = 2.sp)
         Text("No node connected. Enter the hypervisor address and credentials.",
             color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 11.sp,
             modifier = Modifier.padding(vertical = 8.dp))
@@ -148,7 +148,7 @@ private fun MetricsCard(m: NexisApiService.HvMetrics) {
 private fun MetricPill(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = NxOrange, fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            fontFamily = FontFamily.Monospace, fontSize = 14.sp)
         Text(label, color = NxFg2, fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.sp)
     }
 }
