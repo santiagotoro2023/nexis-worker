@@ -93,6 +93,7 @@ private data class PendingImage(
     val isImage:  Boolean = true,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onNavigateToSettings: () -> Unit,
