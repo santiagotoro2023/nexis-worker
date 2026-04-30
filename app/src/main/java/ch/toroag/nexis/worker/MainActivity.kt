@@ -6,7 +6,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -315,7 +314,7 @@ private fun PermissionSetupScreen(onGrant: () -> Unit) {
     }
 }
 
-// ── Nav rail destinations ─────────────────────────────────────────────────────
+// ── Drawer destinations ───────────────────────────────────────────────────────
 
 private data class NavDestination(
     val route: String,
@@ -324,15 +323,15 @@ private data class NavDestination(
 )
 
 private val navDestinations = listOf(
-    NavDestination("chat",       "CHAT",       Icons.Default.Chat),
-    NavDestination("remote",     "REMOTE",     Icons.Default.Computer),
-    NavDestination("schedules",  "SCHEDULES",  Icons.Default.Schedule),
-    NavDestination("devices",    "DEVICES",    Icons.Default.Devices),
-    NavDestination("hypervisor", "HYPERVISOR", Icons.Default.Dns),
-    NavDestination("settings",   "SETTINGS",   Icons.Default.Settings),
+    NavDestination("chat",       "Chat",       Icons.Default.Chat),
+    NavDestination("remote",     "Remote",     Icons.Default.Computer),
+    NavDestination("schedules",  "Schedules",  Icons.Default.Schedule),
+    NavDestination("devices",    "Devices",    Icons.Default.Devices),
+    NavDestination("hypervisor", "Hypervisor", Icons.Default.Dns),
+    NavDestination("settings",   "Settings",   Icons.Default.Settings),
 )
 
-// ── Main app nav ──────────────────────────────────────────────────────────────
+// ── Main app ──────────────────────────────────────────────────────────────────
 
 @Composable
 private fun NexisApp(
@@ -343,6 +342,8 @@ private fun NexisApp(
     val navController = rememberNavController()
     val prefs         = PreferencesRepository.get(context)
     val token         by prefs.token.collectAsState(initial = null)
+    val drawerState   = rememberDrawerState(DrawerValue.Closed)
+    val scope         = rememberCoroutineScope()
 
     val startDest = when {
         token == null        -> "loading"
@@ -352,26 +353,89 @@ private fun NexisApp(
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute   = backStackEntry?.destination?.route
-    val showRail = currentRoute != null && currentRoute != "login" && currentRoute != "loading"
+    val showDrawer     = currentRoute != null && currentRoute != "login" && currentRoute != "loading"
 
-    Row(Modifier.fillMaxSize().background(NxBg)) {
-        if (showRail) {
-            NexisNavRail(
-                currentRoute = currentRoute,
-                onNavigate   = { route ->
-                    navController.navigate(route) {
-                        popUpTo("chat") { saveState = true }
-                        launchSingleTop = true
-                        restoreState    = true
-                    }
-                },
-            )
+    fun navigate(route: String) {
+        scope.launch { drawerState.close() }
+        navController.navigate(route) {
+            popUpTo("chat") { saveState = true }
+            launchSingleTop = true
+            restoreState    = true
         }
+    }
 
+    ModalNavigationDrawer(
+        drawerState     = drawerState,
+        gesturesEnabled = showDrawer,
+        drawerContent   = {
+            if (showDrawer) {
+                ModalDrawerSheet(
+                    drawerContainerColor = NxBg2,
+                    drawerTonalElevation = 0.dp,
+                    windowInsets         = WindowInsets(0),
+                    modifier             = Modifier.width(260.dp),
+                ) {
+                    // Header
+                    Row(
+                        modifier            = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalAlignment   = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        NexisEyeLogo(size = 28.dp)
+                        Column {
+                            Text("NEXIS",
+                                fontFamily    = FontFamily.Monospace,
+                                fontSize      = 15.sp,
+                                fontWeight    = FontWeight.Bold,
+                                color         = NxFg,
+                                letterSpacing = 0.3.sp)
+                            Text("NX-WRK",
+                                fontFamily    = FontFamily.Monospace,
+                                fontSize      = 9.sp,
+                                color         = NxFg2,
+                                letterSpacing = 0.15.sp)
+                        }
+                    }
+                    HorizontalDivider(color = NxBorder, thickness = 1.dp)
+                    Spacer(Modifier.height(8.dp))
+                    navDestinations.forEach { dest ->
+                        val selected = currentRoute == dest.route ||
+                            (dest.route == "chat" && currentRoute == "voice")
+                        NavigationDrawerItem(
+                            icon   = {
+                                Icon(dest.icon,
+                                    contentDescription = dest.label,
+                                    modifier           = Modifier.size(18.dp))
+                            },
+                            label  = {
+                                Text(dest.label,
+                                    fontFamily    = FontFamily.Monospace,
+                                    fontSize      = 11.sp,
+                                    letterSpacing = 0.1.sp,
+                                    fontWeight    = if (selected) FontWeight.Bold else FontWeight.Normal)
+                            },
+                            selected = selected,
+                            onClick  = { navigate(dest.route) },
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                            colors   = NavigationDrawerItemDefaults.colors(
+                                selectedContainerColor = NxOrange.copy(alpha = 0.10f),
+                                selectedIconColor      = NxOrange,
+                                selectedTextColor      = NxOrange,
+                                unselectedIconColor    = NxFg2,
+                                unselectedTextColor    = NxFg2,
+                            ),
+                        )
+                    }
+                }
+            }
+        },
+    ) {
         NavHost(
             navController    = navController,
             startDestination = startDest,
-            modifier         = Modifier.weight(1f).fillMaxHeight(),
+            modifier         = Modifier.fillMaxSize(),
         ) {
             composable("loading") {
                 Box(Modifier.fillMaxSize().background(NxBg))
@@ -387,11 +451,10 @@ private fun NexisApp(
             }
             composable("chat") {
                 ChatScreen(
-                    onNavigateToSettings = { navController.navigate("settings") },
-                    onNavigateToVoice    = { navController.navigate("voice") },
-                    onNavigateToRemote   = { navController.navigate("remote") },
-                    sharePayload         = sharePayload,
-                    onShareConsumed      = onShareConsumed,
+                    onOpenDrawer    = { scope.launch { drawerState.open() } },
+                    onNavigateToVoice = { navController.navigate("voice") },
+                    sharePayload    = sharePayload,
+                    onShareConsumed = onShareConsumed,
                 )
             }
             composable("settings") {
@@ -405,8 +468,8 @@ private fun NexisApp(
                     onNavigateToMemories  = { navController.navigate("memories") },
                     onNavigateToHistory   = { navController.navigate("history") },
                     onNavigateToSchedules = { navController.navigate("schedules") },
-                    onNavigateToDevices      = { navController.navigate("devices") },
-                    onNavigateToHypervisor   = { navController.navigate("hypervisor") },
+                    onNavigateToDevices   = { navController.navigate("devices") },
+                    onNavigateToHypervisor = { navController.navigate("hypervisor") },
                 )
             }
             composable("voice") {
@@ -437,57 +500,6 @@ private fun NexisApp(
             composable("hypervisor") {
                 HypervisorScreen(onBack = { navController.popBackStack() })
             }
-        }
-    }
-}
-
-// ── NavigationRail ────────────────────────────────────────────────────────────
-
-@Composable
-private fun NexisNavRail(
-    currentRoute: String?,
-    onNavigate:   (String) -> Unit,
-) {
-    NavigationRail(
-        containerColor  = NxBg2,
-        contentColor    = NxFg2,
-        modifier        = Modifier.border(
-            width = 1.dp,
-            color = NxBorder,
-            shape = RoundedCornerShape(0.dp),
-        ),
-        header = {
-            Spacer(Modifier.height(8.dp))
-            NexisEyeLogo(size = 32.dp, modifier = Modifier.padding(vertical = 8.dp))
-            Spacer(Modifier.height(4.dp))
-        },
-    ) {
-        navDestinations.forEach { dest ->
-            val selected = currentRoute == dest.route ||
-                (dest.route == "chat" && currentRoute == "voice")
-            NavigationRailItem(
-                selected = selected,
-                onClick  = { if (!selected) onNavigate(dest.route) },
-                icon     = {
-                    Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(20.dp))
-                },
-                label    = {
-                    Text(
-                        dest.label,
-                        fontFamily    = FontFamily.Monospace,
-                        fontSize      = 10.sp,
-                        letterSpacing = 0.12.sp,
-                        fontWeight    = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    )
-                },
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor   = NxOrange,
-                    selectedTextColor   = NxOrange,
-                    indicatorColor      = NxOrange.copy(alpha = 0.10f),
-                    unselectedIconColor = NxFg2,
-                    unselectedTextColor = NxFg2,
-                ),
-            )
         }
     }
 }

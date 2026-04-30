@@ -24,13 +24,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -96,11 +95,10 @@ private data class PendingImage(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    onNavigateToSettings: () -> Unit,
-    onNavigateToVoice:    () -> Unit    = {},
-    onNavigateToRemote:   () -> Unit    = {},
-    sharePayload:         SharePayload? = null,
-    onShareConsumed:      () -> Unit    = {},
+    onOpenDrawer:     () -> Unit    = {},
+    onNavigateToVoice: () -> Unit   = {},
+    sharePayload:     SharePayload? = null,
+    onShareConsumed:  () -> Unit    = {},
     chatVm: ChatViewModel = viewModel(),
 ) {
     val context         = LocalContext.current
@@ -198,8 +196,12 @@ fun ChatScreen(
                 .windowInsetsPadding(WindowInsets.statusBars),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconButton(onClick = onOpenDrawer, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Menu, null, tint = NxFg2, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(4.dp))
             Box(
-                Modifier.size(8.dp).clip(CircleShape).background(
+                Modifier.size(7.dp).clip(CircleShape).background(
                     when (connStatus) {
                         ConnectionStatus.Connected    -> NxOrange
                         ConnectionStatus.Connecting   -> NxOrangeDim
@@ -214,9 +216,6 @@ fun ChatScreen(
             IconButton(onClick = onNavigateToVoice, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.RecordVoiceOver, null, tint = NxFg2, modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = onNavigateToRemote, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Computer, null, tint = NxFg2, modifier = Modifier.size(18.dp))
-            }
             IconButton(onClick = { chatVm.toggleVoice(!voiceEnabled) }, modifier = Modifier.size(36.dp)) {
                 Icon(
                     if (voiceEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null,
@@ -225,9 +224,6 @@ fun ChatScreen(
             }
             TextButton(onClick = { showModelSheet = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
                 Text("MODEL", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = NxFg2)
-            }
-            IconButton(onClick = onNavigateToSettings, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Settings, null, tint = NxFg2, modifier = Modifier.size(18.dp))
             }
         }
         HorizontalDivider(color = NxBorder, thickness = 1.dp)
