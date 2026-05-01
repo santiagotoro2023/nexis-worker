@@ -20,7 +20,7 @@ Client applications for the NeXiS ecosystem. Available for Android (8.0+) and Li
 | [nexis-hypervisor](https://github.com/santiagotoro2023/nexis-hypervisor) | Per-node VM and container management |
 | **nexis-worker** | Android and desktop client — you are here |
 
-Workers connect directly to the Controller. All paired hypervisor nodes are accessible through the Controller's proxy — no separate credentials per hypervisor node.
+Workers connect directly to the Controller. All paired hypervisor nodes are accessible through the Controller's proxy — no separate credentials per node.
 
 ---
 
@@ -30,6 +30,12 @@ Workers connect directly to the Controller. All paired hypervisor nodes are acce
 - Real-time conversation with the Controller's local LLM (Ollama)
 - Streaming responses with optional voice output (TTS) and voice input (STT)
 - Persistent conversation history synced across all Worker devices
+- Model selector in the top bar
+
+**Navigation**
+- Collapsible side drawer — tap the hamburger menu to open
+- Sections: Chat, Hypervisor, Schedules, History, Devices, Remote, Settings
+- Connection status indicator always visible in the chat top bar
 
 **Hypervisors**
 - View all VMs and containers across every paired hypervisor node
@@ -50,12 +56,29 @@ Workers connect directly to the Controller. All paired hypervisor nodes are acce
 
 | Platform | Format | Requirements |
 |----------|--------|--------------|
-| Android | APK (sideload) | Android 8.0+ |
+| Android | APK (sideload) | Android 8.0+ (API 26) |
 | Linux desktop | `.deb` | Debian 12 / Ubuntu 22.04+ · x86_64 |
 
 ---
 
-## Building
+## Download
+
+Pre-built APK and `.deb` packages are available on the [Releases](https://github.com/santiagotoro2023/nexis-worker/releases/latest) page.
+
+**Android:**
+```bash
+adb install nexis-worker-<version>.apk
+```
+Or sideload the APK directly via Files / package installer.
+
+**Linux desktop:**
+```bash
+sudo dpkg -i nexis-worker-desktop_<version>_amd64.deb
+```
+
+---
+
+## Building from Source
 
 ```bash
 git clone https://github.com/santiagotoro2023/nexis-worker
@@ -101,8 +124,8 @@ No per-hypervisor setup. All VMs from all paired nodes appear in the **Hyperviso
 
 | Component | Technology |
 |-----------|-----------|
-| Android app | Kotlin · Android SDK 26+ |
+| Android app | Kotlin · Jetpack Compose · Material 3 |
 | Desktop app | Kotlin · Compose Multiplatform · Material 3 |
-| Build system | Gradle 8.9 · AGP 8.7.3 |
+| Build system | Gradle 8.9 · AGP 8.7 · compileSdk 35 · minSdk 26 |
 | Networking | OkHttp · custom TOFU TLS |
 | Storage | Android DataStore / JVM preferences |
