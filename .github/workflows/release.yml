@@ -1,5 +1,5 @@
 # Nexis Worker — Release Pipeline
-# Builds: Android APK + Linux desktop .deb
+# Builds: Android APK + Linux desktop .deb + Windows .msi
 # Triggered on: version tags (v1.0.0, v1.2.3, …)
 # Uniform versioning with nexis-hypervisor and nexis-controller.
 
@@ -20,8 +20,9 @@ env:
   NEXIS_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', inputs.version) }}
 
 jobs:
-  build:
-    name: Build Android APK + Desktop .deb
+  # ── Android APK + Linux .deb ──────────────────────────────────────────────────
+  build-linux-android:
+    name: Build Android APK + Linux .deb
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -90,7 +91,7 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
         run: gradle :desktopApp:packageDeb --no-daemon
 
-      # ── GitHub Release ────────────────────────────────────────────────────────
+      # ── GitHub Release (creates the release, Windows job uploads to it) ──────
       - name: Generate release notes
         id: notes
         run: |
@@ -102,18 +103,22 @@ jobs:
           | File | Description |
           |------|-------------|
           | \`nexis-worker-${VERSION#v}.apk\` | Android application package |
-          | \`nexis-worker-desktop_${VERSION#v}_amd64.deb\` | Linux desktop Debian package |
+          | \`nexis-worker-desktop_${VERSION#v}_amd64.deb\` | Linux desktop (Debian/Ubuntu) |
+          | \`nexis-worker-desktop-${VERSION#v}.msi\` | Windows installer |
 
           ### Install — Android
           \`\`\`
           adb install nexis-worker-${VERSION#v}.apk
           \`\`\`
-          Or sideload the APK directly. The app auto-updates on subsequent releases.
+          Or sideload the APK directly.
 
-          ### Install — Linux Desktop
+          ### Install — Linux
           \`\`\`bash
           sudo dpkg -i nexis-worker-desktop_${VERSION#v}_amd64.deb
           \`\`\`
+
+          ### Install — Windows
+          Run \`nexis-worker-desktop-${VERSION#v}.msi\` and follow the installer.
 
           ---
           Part of the [Nexis ecosystem](https://github.com/santiagotoro2023).
@@ -130,3 +135,49 @@ jobs:
             desktopApp/build/compose/binaries/main/deb/nexis-worker-desktop_${{ steps.ver.outputs.version }}_amd64.deb
           draft: false
           prerelease: ${{ contains(env.NEXIS_VERSION, '-') }}
+
+  # ── Windows .msi ──────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows .msi
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Strip local gradle.properties overrides
+        shell: bash
+        run: sed -i '/^org\.gradle\.java\.home/d' gradle.properties
+
+      - name: Extract version
+        id: ver
+        shell: bash
+        run: |
+          V="${{ env.NEXIS_VERSION }}"
+          echo "version=${V#v}" >> "$GITHUB_OUTPUT"
+          echo "BUILD_TIMESTAMP=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Build Windows MSI
+        env:
+          BUILD_TIMESTAMP: ${{ env.BUILD_TIMESTAMP }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: gradle :desktopApp:packageMsi --no-daemon
+
+      - name: Upload MSI to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.NEXIS_VERSION }}
+          files: desktopApp/build/compose/binaries/main/msi/nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi

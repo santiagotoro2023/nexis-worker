@@ -57,7 +57,7 @@ compose.desktop {
         mainClass = "ch.toroag.nexis.desktop.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb)
+            targetFormats(TargetFormat.Deb, TargetFormat.Msi)
             packageName        = "nexis-worker-desktop"
             packageVersion     = appVersion
             description        = "NeXiS Desktop Worker — companion app for the NeXiS AI controller"
@@ -71,6 +71,14 @@ compose.desktop {
                 menuGroup      = "Utility"
                 shortcut       = true
                 debPackageVersion = packageVersion
+            }
+
+            windows {
+                iconFile.set(file("src/main/resources/icon.png"))
+                menuGroup      = "NeXiS"
+                shortcut       = true
+                dirChooser     = true
+                upgradeUuid    = "A3B4C5D6-E7F8-4A1B-9C2D-3E4F5A6B7C8D"
             }
 
             modules("java.net.http", "java.security.jgss", "jdk.crypto.ec", "java.prefs")
