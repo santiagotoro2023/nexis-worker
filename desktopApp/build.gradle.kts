@@ -15,6 +15,7 @@ kotlin {
 
 // ── Embed BUILD_TIMESTAMP at compile time ──────────────────────────────────────
 val buildTimestamp: String = System.getenv("BUILD_TIMESTAMP") ?: "0"
+val appVersion: String = System.getenv("VERSION") ?: "1.0.0"
 
 val generateBuildConfig by tasks.registering {
     val outputDir = layout.buildDirectory.dir("generated/buildconfig/kotlin")
@@ -58,7 +59,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb)
             packageName        = "nexis-worker-desktop"
-            packageVersion     = "1.0.0"
+            packageVersion     = appVersion
             description        = "NeXiS Desktop Worker — companion app for the NeXiS AI controller"
             vendor             = "toroag.ch"
             licenseFile.set(rootProject.file("LICENSE"))
