@@ -13,7 +13,7 @@ kotlin {
     jvmToolchain(21)
 }
 
-// ── Embed BUILD_TIMESTAMP at compile time ──────────────────────────────────────
+// ── Embed BUILD_TIMESTAMP at compile time ──────────────────────────────────────────────
 val buildTimestamp: String = System.getenv("BUILD_TIMESTAMP") ?: "0"
 val appVersion: String = System.getenv("VERSION") ?: "1.0.0"
 
@@ -39,7 +39,7 @@ kotlin.sourceSets.main {
     kotlin.srcDir(generateBuildConfig)
 }
 
-// ── Dependencies ──────────────────────────────────────────────────────────────
+// ── Dependencies ────────────────────────────────────────────────────────────────────
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -51,7 +51,7 @@ dependencies {
     implementation("org.json:json:20240303")
 }
 
-// ── Native distributions (.deb) ───────────────────────────────────────────────
+// ── Native distributions (.deb) ───────────────────────────────────────────────────────────────
 compose.desktop {
     application {
         mainClass = "ch.toroag.nexis.desktop.MainKt"
@@ -86,15 +86,25 @@ compose.desktop {
     }
 }
 
-// ── Inject Depends: into the generated .deb ──────────────────────────────────
-// The Compose Desktop DSL (1.7.3) does not expose --linux-package-deps, so we
-// post-process the .deb with dpkg-deb after it's built.
+// ── Inject Depends: into the generated .deb ──────────────────────────────────────────────
 val debRuntimeDeps = "playerctl, libnotify-bin, xdg-utils, xclip"
 
 tasks.register("packageDebWithDeps") {
     dependsOn("packageDeb")
     description = "Repack the .deb to inject Depends: $debRuntimeDeps"
     val buildDir = layout.buildDirectory
+    doFirst {
+        // Verify fakeroot is available before attempting to repack
+        val result = project.exec {
+            commandLine("which", "fakeroot")
+            isIgnoreExitValue = true
+        }
+        if (result.exitValue != 0) {
+            throw GradleException(
+                "fakeroot is required for packageDebWithDeps. Install with: sudo apt-get install fakeroot"
+            )
+        }
+    }
     doLast {
         val debDir = buildDir.dir("compose/binaries/main/deb").get().asFile
         val deb    = debDir.listFiles()?.firstOrNull { it.extension == "deb" }

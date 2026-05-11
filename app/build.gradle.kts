@@ -6,9 +6,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Version code = Unix epoch seconds (always increasing on each build/release)
+// Subtract a fixed base so versionCode stays small and never overflows Int.
+// Base = 2023-11-15 00:00:00 UTC. Current value ≈47M; overflow ~2091.
+private val BASE_EPOCH = 1_700_006_400L
 val buildTime = System.getenv("BUILD_TIMESTAMP")?.toLongOrNull()
     ?: Instant.now().epochSecond
+val versionCode = (buildTime - BASE_EPOCH).toInt()
 
 android {
     namespace = "ch.toroag.nexis.worker"
@@ -18,7 +21,7 @@ android {
         applicationId = "ch.toroag.nexis.worker"
         minSdk = 26
         targetSdk = 35
-        versionCode = buildTime.toInt()
+        versionCode = versionCode
         versionName = "1.0.0"
 
         buildConfigField("long", "VERSION_TIMESTAMP", "${buildTime}L")
@@ -54,6 +57,16 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+// Fail fast when KEYSTORE_PATH is absent in CI rather than silently producing
+// an unsigned APK that will be rejected at distribution time.
+tasks.named("assembleRelease") {
+    doFirst {
+        if (System.getenv("CI") != null && System.getenv("KEYSTORE_PATH") == null) {
+            throw GradleException("KEYSTORE_PATH is required for release builds in CI")
+        }
     }
 }
 
