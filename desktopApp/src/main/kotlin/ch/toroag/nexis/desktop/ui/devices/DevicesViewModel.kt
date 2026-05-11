@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DevicesViewModel : AutoCloseable {
 
@@ -96,6 +97,28 @@ class DevicesViewModel : AutoCloseable {
                     api.probeDevice(baseUrl, token, dev.deviceId)
             }.getOrElse { it.message ?: "error" }
             _probeLoading.value = false
+        }
+    }
+
+    fun requestVncSession(deviceId: String) {
+        scope.launch(Dispatchers.IO) {
+            val prefs = PreferencesRepository.get()
+            val token   = prefs.token.first()
+            val baseUrl = prefs.baseUrl.first()
+            val result  = api.requestVncSession(baseUrl, token, deviceId)
+            if (result.ok && result.viewUrl.isNotEmpty()) {
+                val fullUrl = "$baseUrl${result.viewUrl}"
+                // Open in default browser
+                withContext(Dispatchers.Main) {
+                    try {
+                        java.awt.Desktop.getDesktop().browse(java.net.URI(fullUrl))
+                    } catch (e: Exception) {
+                        // Fallback: try xdg-open on Linux
+                        try { Runtime.getRuntime().exec(arrayOf("xdg-open", fullUrl)) } catch (_: Exception) {}
+                    }
+                }
+            }
+            // If result.error is not null, it could be shown as a snackbar — for simplicity, log it
         }
     }
 

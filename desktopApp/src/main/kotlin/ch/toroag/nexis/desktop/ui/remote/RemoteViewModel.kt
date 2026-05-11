@@ -2,6 +2,7 @@ package ch.toroag.nexis.desktop.ui.remote
 
 import ch.toroag.nexis.desktop.data.NexisApiService
 import ch.toroag.nexis.desktop.data.PreferencesRepository
+import ch.toroag.nexis.desktop.util.VncServerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -67,6 +68,7 @@ class RemoteViewModel : AutoCloseable {
     val haStatusBusy: StateFlow<Boolean> = _haStatusBusy
 
     private var haPollingJob: Job? = null
+    private var commandPollingJob: Job? = null
 
     private var baseUrl = ""
     private var token   = ""
@@ -219,6 +221,34 @@ class RemoteViewModel : AutoCloseable {
         }
     }
 
+    fun startCommandPolling(deviceId: String) {
+        if (commandPollingJob?.isActive == true) return
+        commandPollingJob = scope.launch(Dispatchers.IO) {
+            while (true) {
+                if (baseUrl.isNotEmpty() && token.isNotEmpty()) {
+                    val commands = runCatching { api.pollCommands(baseUrl, token, deviceId) }.getOrDefault(emptyList())
+                    if (commands.isNotEmpty()) {
+                        commands.forEach { cmd ->
+                            when (cmd.action) {
+                                "start_vnc" -> {
+                                    val port = cmd.arg.toIntOrNull() ?: 5900
+                                    VncServerManager.start(port)
+                                }
+                                "stop_vnc" -> {
+                                    VncServerManager.stop()
+                                }
+                            }
+                        }
+                        runCatching { api.ackCommands(baseUrl, token, commands.map { it.id }) }
+                    }
+                }
+                delay(5000)
+            }
+        }
+    }
+
+    fun stopCommandPolling() { commandPollingJob?.cancel(); commandPollingJob = null }
+
     private fun List<NexisApiService.DeviceInfo>.toJson(): String {
         val arr = JSONArray()
         forEach { d ->
@@ -264,5 +294,5 @@ class RemoteViewModel : AutoCloseable {
         }
     } catch (_: Exception) { emptyList() }
 
-    override fun close() { stopHaPolling() }
+    override fun close() { stopHaPolling(); stopCommandPolling() }
 }

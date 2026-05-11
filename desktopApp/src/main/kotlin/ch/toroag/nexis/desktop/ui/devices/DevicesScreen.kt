@@ -55,6 +55,7 @@ fun DevicesScreen(vm: DevicesViewModel) {
                         onProbe        = { vm.probeDevice(dev) },
                         onSavePassword = { pw -> vm.saveDevicePassword(dev.deviceId, pw) },
                         onDelete       = { vm.deleteDevice(dev.deviceId) },
+                        onOpenScreen   = { vm.requestVncSession(dev.deviceId) },
                     )
                 }
                 if (devices.isEmpty()) {
@@ -115,6 +116,7 @@ private fun DeviceCard(
     onProbe:        () -> Unit,
     onSavePassword: (String) -> Unit,
     onDelete:       () -> Unit,
+    onOpenScreen:   () -> Unit,
 ) {
     val dotColor = if (dev.online) NxGreen else NxFg2
     var passwordInput    by remember(savedPassword) { mutableStateOf(savedPassword) }
@@ -246,6 +248,19 @@ private fun DeviceCard(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
                     border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
                 ) { Text("probe", fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
+
+                OutlinedButton(
+                    onClick = onOpenScreen,
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NxOrange),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, NxOrangeDim),
+                ) {
+                    Icon(Icons.Default.DesktopWindows, null, Modifier.size(12.dp), tint = NxOrange)
+                    Spacer(Modifier.width(4.dp))
+                    Text("screen", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                }
 
                 Spacer(Modifier.weight(1f))
 
