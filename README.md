@@ -1,6 +1,6 @@
 # NeXiS Worker
 
-Client applications for the NeXiS ecosystem. Available for Android (8.0+) and Linux desktop. Connects to a NeXiS Controller to provide a portable AI assistant interface, device remote control, and VM management from anywhere.
+Client applications for the NeXiS ecosystem. Available for Android (8.0+) and Linux desktop. Connects to a NeXiS Controller to provide a portable AI assistant interface, remote device control, and VM management from anywhere.
 
 ---
 
@@ -20,43 +20,56 @@ Client applications for the NeXiS ecosystem. Available for Android (8.0+) and Li
 | [nexis-hypervisor](https://github.com/santiagotoro2023/nexis-hypervisor) | Per-node VM and container management |
 | **nexis-worker** | Android and desktop client — you are here |
 
-Workers connect directly to the Controller. All paired hypervisor nodes are accessible through the Controller's proxy — no separate credentials per node.
+Workers connect directly to the Controller. All paired Hypervisor nodes are accessible through the Controller's proxy — no separate credentials per node.
 
 ---
 
-## Capabilities
+## What It Is
 
-**AI Interface**
+NeXiS Worker is a Kotlin Multiplatform application with two targets:
+
+- **Android app** (Jetpack Compose) — sideloadable APK for Android 8.0+
+- **Linux desktop app** (Compose Multiplatform) — `.deb` package for Debian 12 / Ubuntu 22.04+
+
+Both targets share the same networking layer, and both register as managed devices with the Controller on first connection.
+
+---
+
+## Features
+
+### AI Interface
 - Real-time conversation with the Controller's local LLM (Ollama)
-- Streaming responses with optional voice output (TTS) and voice input (STT)
-- Persistent conversation history synced across all Worker devices
-- Model selector in the top bar
+- Streaming token output
+- Persistent conversation history synced across all Worker devices and the Controller web UI
+- Model selector
 
-**Navigation**
-- Collapsible side drawer — tap the hamburger menu to open
-- Sections: Chat, Hypervisor, Schedules, History, Devices, Remote, Settings
-- Connection status indicator always visible in the chat top bar
+### Remote Device Control
+- The Controller can issue commands to connected Worker devices
+- Workers register with the Controller, then poll `GET /api/devices/commands` for queued actions
+- Remote desktop access via VNC (Worker can start a VNC server; Controller connects via the Remote page)
+- Device status reporting back to the Controller
 
-**Hypervisors**
-- View all VMs and containers across every paired hypervisor node
+### Hypervisor Management
+- View all VMs and containers across every paired Hypervisor node (via the Controller proxy)
 - Start, stop, reboot, and force-stop VMs directly from the app
 - Status indicators (running / stopped / paused) with per-VM resource chips
 
-**Device & Ecosystem Control**
-- Remote desktop actions on other connected Worker clients
-- View live resource metrics from all paired NeXiS Hypervisor nodes
-
-**Automation**
+### Automation
 - View and trigger scheduled tasks defined on the Controller
-- Real-time notifications for alarms and events
+- Real-time notifications for alarms and scheduled events via SSE
+
+### Settings
+- Controller URL and credentials stored locally
+- Trust-on-first-use (TOFU) TLS — accepts self-signed certificates
+- Connection status indicator always visible
 
 ---
 
-## Platforms
+## Supported Platforms
 
 | Platform | Format | Requirements |
 |----------|--------|--------------|
-| Android | APK (sideload) | Android 8.0+ (API 26) |
+| Android | APK (sideload) | Android 8.0+ (API 26+) |
 | Linux desktop | `.deb` | Debian 12 / Ubuntu 22.04+ · x86_64 |
 
 ---
@@ -65,13 +78,17 @@ Workers connect directly to the Controller. All paired hypervisor nodes are acce
 
 Pre-built APK and `.deb` packages are available on the [Releases](https://github.com/santiagotoro2023/nexis-worker/releases/latest) page.
 
-**Android:**
+### Android
+
 ```bash
+# via adb
 adb install nexis-worker-<version>.apk
 ```
-Or sideload the APK directly via Files / package installer.
 
-**Linux desktop:**
+Or sideload the APK directly on the device via a file manager / package installer.
+
+### Linux Desktop
+
 ```bash
 sudo dpkg -i nexis-worker-desktop_<version>_amd64.deb
 ```
@@ -103,29 +120,94 @@ cd nexis-worker
 
 1. Install or sideload the app
 2. Open the app — enter your NeXiS Controller URL (e.g. `https://192.168.1.10:8443`)
-3. Accept the self-signed certificate on first connection
+3. Accept the self-signed TLS certificate prompt (TOFU — trust on first use)
 4. Enter your Controller username and password
 5. The app registers itself as a device — it appears in the Controller's **Devices** panel
 
-No per-hypervisor setup. All VMs from all paired nodes appear in the **Hypervisors** tab via the Controller.
+No per-Hypervisor setup is needed. All VMs from all paired nodes appear in the **Hypervisors** tab, proxied through the Controller.
 
 ---
 
-## Connection
+## Device Registration
 
-- **Protocol:** HTTPS with TOFU (Trust On First Use) TLS — accepts self-signed certificates
-- **Auth:** Bearer token, 90-day TTL
-- **Realtime:** Server-Sent Events for conversation sync and notifications
-- **Timeout:** 300 s for streaming endpoints, 30 s for standard requests
+On first successful login, the Worker calls:
+
+```http
+POST /api/devices/register
+Authorization: Bearer <token>
+
+{
+  "device_id": "<unique-device-id>",
+  "name": "<device-name>",
+  "type": "worker",
+  "platform": "android" | "linux"
+}
+```
+
+The Controller stores the registration and the device appears in the **Devices** page.
+
+---
+
+## Command Polling
+
+Registered Workers poll the Controller periodically for queued commands:
+
+```http
+GET /api/devices/commands
+Authorization: Bearer <token>
+```
+
+The Controller can queue the following command types:
+
+| Command | Description |
+|---------|-------------|
+| `screenshot` | Capture and return a screenshot |
+| `launch` | Launch an application by name |
+| `open_url` | Open a URL in the default browser |
+| `notify` | Send a desktop / system notification |
+| `volume_set` | Set system volume to a given level |
+| `volume_up` / `volume_down` | Adjust volume by step |
+| `vnc_start` | Start VNC server for remote desktop access |
+| `vnc_stop` | Stop VNC server |
+| `lock_screen` | Lock the device screen |
+| `wake_screen` | Wake the device screen |
+| `get_status` | Report device status (battery, network, etc.) |
+
+---
+
+## Connection Details
+
+| Property | Value |
+|----------|-------|
+| Protocol | HTTPS |
+| TLS | TOFU — self-signed certificates accepted on first connection |
+| Auth | Bearer token, 90-day TTL |
+| Realtime | Server-Sent Events (SSE) for conversation sync and notifications |
+| Streaming timeout | 300 seconds |
+| Standard timeout | 30 seconds |
 
 ---
 
 ## Stack
 
 | Component | Technology |
-|-----------|-----------|
+|-----------|------------|
 | Android app | Kotlin · Jetpack Compose · Material 3 |
 | Desktop app | Kotlin · Compose Multiplatform · Material 3 |
-| Build system | Gradle 8.9 · AGP 8.7 · compileSdk 35 · minSdk 26 |
-| Networking | OkHttp · custom TOFU TLS |
-| Storage | Android DataStore / JVM preferences |
+| Build system | Gradle 8.9 · AGP 8.7 · `compileSdk 35` · `minSdk 26` |
+| Networking | OkHttp · custom TOFU TLS trust manager |
+| Storage | Android DataStore (Android) / JVM preferences (desktop) |
+
+---
+
+## Navigation
+
+| Section | Description |
+|---------|-------------|
+| Chat | AI conversation with streaming output |
+| Hypervisor | VMs and containers across all paired nodes |
+| Schedules | Automated tasks defined on the Controller |
+| History | Conversation history |
+| Devices | Other registered Worker devices |
+| Remote | Remote desktop control |
+| Settings | Controller URL, credentials, TLS, preferences |
