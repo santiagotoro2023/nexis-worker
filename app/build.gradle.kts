@@ -62,10 +62,13 @@ android {
 
 // Fail fast when KEYSTORE_PATH is absent in CI rather than silently producing
 // an unsigned APK that will be rejected at distribution time.
-tasks.named("assembleRelease") {
-    doFirst {
-        if (System.getenv("CI") != null && System.getenv("KEYSTORE_PATH") == null) {
-            throw GradleException("KEYSTORE_PATH is required for release builds in CI")
+// Must run in afterEvaluate because AGP registers assembleRelease lazily.
+afterEvaluate {
+    tasks.named("assembleRelease") {
+        doFirst {
+            if (System.getenv("CI") != null && System.getenv("KEYSTORE_PATH") == null) {
+                throw GradleException("KEYSTORE_PATH is required for release builds in CI")
+            }
         }
     }
 }
