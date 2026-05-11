@@ -29,6 +29,8 @@ import java.awt.Point
 import ch.toroag.nexis.desktop.data.PreferencesRepository
 import ch.toroag.nexis.desktop.ui.chat.ChatScreen
 import ch.toroag.nexis.desktop.ui.chat.ChatViewModel
+import ch.toroag.nexis.desktop.ui.commands.CommandsScreen
+import ch.toroag.nexis.desktop.ui.commands.CommandsViewModel
 import ch.toroag.nexis.desktop.ui.devices.DevicesScreen
 import ch.toroag.nexis.desktop.ui.devices.DevicesViewModel
 import ch.toroag.nexis.desktop.ui.hypervisor.HypervisorScreen
@@ -63,7 +65,12 @@ enum class Screen(
     Schedules  ("SCHEDULES",  Icons.Default.Schedule),
     Devices    ("DEVICES",    Icons.Default.Devices),
     Hypervisor ("HYPERVISOR", Icons.Default.Dns),
-    Settings   ("SETTINGS",   Icons.Default.Settings),
+    Commands   ("COMMANDS",   Icons.Default.Terminal),
+    Settings   ("SETTINGS",   Icons.Default.Settings);
+
+    companion object {
+        val adminOnly = setOf(Commands)
+    }
 }
 
 fun main() = application {
@@ -147,7 +154,7 @@ fun main() = application {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "NEXIS WORKER  ·  NX-WRK · BUILD 1.0.6",
+                        "NEXIS WORKER  ·  NX-WRK · BUILD 1.0.18",
                         fontFamily    = FontFamily.Monospace,
                         fontSize      = 10.sp,
                         letterSpacing = 0.15.sp,
@@ -198,6 +205,8 @@ private fun App() {
 
 @Composable
 private fun MainShell(onLogout: () -> Unit) {
+    val prefs        = remember { PreferencesRepository.get() }
+    val role         = remember { runBlocking { prefs.role.first() } }
     val chatVm       = remember { ChatViewModel() }
     val remoteVm     = remember { RemoteViewModel() }
     val devicesVm    = remember { DevicesViewModel() }
@@ -206,6 +215,7 @@ private fun MainShell(onLogout: () -> Unit) {
     val historyVm    = remember { HistoryViewModel() }
     val schedulesVm  = remember { SchedulesViewModel() }
     val hypervisorVm = remember { HypervisorViewModel() }
+    val commandsVm   = remember { CommandsViewModel() }
 
     var currentScreen by remember { mutableStateOf(Screen.Chat) }
 
@@ -216,6 +226,7 @@ private fun MainShell(onLogout: () -> Unit) {
             currentScreen = currentScreen,
             onNavigate    = { currentScreen = it },
             onLogout      = onLogout,
+            role          = role,
         )
 
         // ── Content ────────────────────────────────────────────────────────────
@@ -228,6 +239,7 @@ private fun MainShell(onLogout: () -> Unit) {
                 Screen.Schedules  -> SchedulesScreen(vm = schedulesVm)
                 Screen.Devices    -> DevicesScreen(vm = devicesVm)
                 Screen.Hypervisor -> HypervisorScreen(vm = hypervisorVm)
+                Screen.Commands   -> CommandsScreen(vm = commandsVm)
                 Screen.Settings   -> SettingsScreen(vm = settingsVm, onLogout = onLogout)
             }
         }
@@ -241,6 +253,7 @@ private fun NexisSidebar(
     currentScreen: Screen,
     onNavigate:    (Screen) -> Unit,
     onLogout:      () -> Unit,
+    role:          String,
 ) {
     Column(
         modifier = Modifier
@@ -281,8 +294,8 @@ private fun NexisSidebar(
         HorizontalDivider(color = NxBorder, thickness = 1.dp)
         Spacer(Modifier.height(8.dp))
 
-        // Nav items
-        Screen.entries.forEach { screen ->
+        // Nav items — filter admin-only screens for non-admin users
+        Screen.entries.filter { it !in Screen.adminOnly || role == "admin" }.forEach { screen ->
             SidebarNavItem(
                 screen    = screen,
                 selected  = currentScreen == screen,
@@ -295,7 +308,7 @@ private fun NexisSidebar(
 
         // Version
         Text(
-            "NX-WRK · BUILD 1.0.6",
+            "NX-WRK · BUILD 1.0.18",
             fontFamily    = FontFamily.Monospace,
             fontSize      = 9.sp,
             letterSpacing = 0.1.sp,

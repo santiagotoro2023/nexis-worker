@@ -25,6 +25,7 @@ class PreferencesRepository private constructor() {
     private val K_DEVICE_PASSWORDS = "device_passwords"
     private val K_HV_URL           = "hv_url"
     private val K_HV_TOKEN         = "hv_token"
+    private val K_ROLE             = "role"
 
     // ── StateFlows (updated after writes) ─────────────────────────────────────
     private val _baseUrl  = MutableStateFlow(javaPrefs.get(K_BASE_URL,  ""))
@@ -33,6 +34,7 @@ class PreferencesRepository private constructor() {
     private val _deviceId = MutableStateFlow(javaPrefs.get(K_DEVICE_ID, ""))
     private val _hvUrl    = MutableStateFlow(javaPrefs.get(K_HV_URL,    ""))
     private val _hvToken  = MutableStateFlow(javaPrefs.get(K_HV_TOKEN,  ""))
+    private val _role     = MutableStateFlow(javaPrefs.get(K_ROLE,      "user"))
 
     val baseUrl:  Flow<String> = _baseUrl
     val token:    Flow<String> = _token
@@ -40,6 +42,7 @@ class PreferencesRepository private constructor() {
     val deviceId: Flow<String> = _deviceId
     val hvUrl:    Flow<String> = _hvUrl
     val hvToken:  Flow<String> = _hvToken
+    val role:     Flow<String> = _role
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +63,12 @@ class PreferencesRepository private constructor() {
         javaPrefs.remove(K_TOKEN)
         javaPrefs.flush()
         _token.value = ""
+    }
+
+    suspend fun setRole(role: String) {
+        javaPrefs.put(K_ROLE, role)
+        javaPrefs.flush()
+        _role.value = role
     }
 
     fun saveHvCredentials(hvUrl: String, hvToken: String) {

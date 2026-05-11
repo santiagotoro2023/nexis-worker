@@ -37,8 +37,9 @@ class LoginViewModel : AutoCloseable {
         _uiState.value = LoginState.Loading
         scope.launch {
             runCatching { api.getToken(url, username, password) }
-                .onSuccess { token ->
-                    prefs.saveCredentials(url, token, username)
+                .onSuccess { result ->
+                    prefs.saveCredentials(url, result.token, username)
+                    prefs.setRole(result.role)
                     _uiState.value = LoginState.Success
                 }
                 .onFailure { e ->
