@@ -308,7 +308,7 @@ private fun NexisSidebar(
 
         // Version
         Text(
-            "NX-WRK · BUILD 1.0.18",
+            "NX-WRK · BUILD 1.0.19",
             fontFamily    = FontFamily.Monospace,
             fontSize      = 9.sp,
             letterSpacing = 0.1.sp,
