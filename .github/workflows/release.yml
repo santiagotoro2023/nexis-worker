@@ -1,12 +1,13 @@
 # Nexis Worker — Release Pipeline
 # Builds: Android APK + Linux desktop .deb + Windows .msi
-# Triggered on: version tags (v1.0.0, v1.2.3, …)
-# Uniform versioning with nexis-hypervisor and nexis-controller.
+# Triggered on: version tags, VERSION file bump on main, or workflow_dispatch.
 
 name: Release
 
 on:
   push:
+    branches: [main]
+    paths: ['VERSION']
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
@@ -16,11 +17,8 @@ on:
         required: true
         default: '1.0.0'
 
-env:
-  NEXIS_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', inputs.version) }}
-
 jobs:
-  # ── Android APK + Linux .deb ──────────────────────────────────────────────────
+  # ── Android APK + Linux .deb ────────────────────────────────────────────────────────
   build-linux-android:
     name: Build Android APK + Linux .deb
     runs-on: ubuntu-latest
@@ -48,9 +46,17 @@ jobs:
       - name: Extract version
         id: ver
         run: |
-          V="${{ env.NEXIS_VERSION }}"
-          echo "version=${V#v}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            V="${{ inputs.version }}"
+          else
+            V=$(cat VERSION | tr -d 'v \n')
+          fi
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${V}" >> "$GITHUB_OUTPUT"
           echo "BUILD_TIMESTAMP=$(date +%s)" >> "$GITHUB_ENV"
+          echo "VERSION=${V}" >> "$GITHUB_ENV"
 
       - name: Prepare keystore
         run: |
@@ -66,7 +72,7 @@ jobs:
             echo "KEY_PASSWORD=temppass"      >> $GITHUB_ENV
           fi
 
-      # ── Android APK ──────────────────────────────────────────────────────────
+      # ── Android APK ────────────────────────────────────────────────────────────────
       - name: Build and sign release APK
         env:
           BUILD_TIMESTAMP:   ${{ env.BUILD_TIMESTAMP }}
@@ -81,7 +87,7 @@ jobs:
           mv app/build/outputs/apk/release/app-release.apk \
              "nexis-worker-${{ steps.ver.outputs.version }}.apk"
 
-      # ── Desktop .deb ─────────────────────────────────────────────────────────
+      # ── Desktop .deb ────────────────────────────────────────────────────────────────
       - name: Install .deb build dependencies
         run: sudo apt-get install -y fakeroot binutils
 
@@ -91,34 +97,34 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
         run: gradle :desktopApp:packageDeb --no-daemon
 
-      # ── GitHub Release (creates the release, Windows job uploads to it) ──────
+      # ── GitHub Release ────────────────────────────────────────────────────────────────
       - name: Generate release notes
         id: notes
         run: |
-          VERSION="${{ env.NEXIS_VERSION }}"
+          VERSION="v${{ steps.ver.outputs.version }}"
           cat > notes.md << EOF
           ## Nexis Worker ${VERSION}
 
           ### Artefacts
           | File | Description |
           |------|-------------|
-          | \`nexis-worker-${VERSION#v}.apk\` | Android application package |
-          | \`nexis-worker-desktop_${VERSION#v}_amd64.deb\` | Linux desktop (Debian/Ubuntu) |
-          | \`nexis-worker-desktop-${VERSION#v}.msi\` | Windows installer |
+          | \`nexis-worker-${{ steps.ver.outputs.version }}.apk\` | Android application package |
+          | \`nexis-worker-desktop_${{ steps.ver.outputs.version }}_amd64.deb\` | Linux desktop (Debian/Ubuntu) |
+          | \`nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi\` | Windows installer |
 
           ### Install — Android
           \`\`\`
-          adb install nexis-worker-${VERSION#v}.apk
+          adb install nexis-worker-${{ steps.ver.outputs.version }}.apk
           \`\`\`
           Or sideload the APK directly.
 
           ### Install — Linux
           \`\`\`bash
-          sudo dpkg -i nexis-worker-desktop_${VERSION#v}_amd64.deb
+          sudo dpkg -i nexis-worker-desktop_${{ steps.ver.outputs.version }}_amd64.deb
           \`\`\`
 
           ### Install — Windows
-          Run \`nexis-worker-desktop-${VERSION#v}.msi\` and follow the installer.
+          Run \`nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi\` and follow the installer.
 
           ---
           Part of the [Nexis ecosystem](https://github.com/santiagotoro2023).
@@ -127,16 +133,16 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.NEXIS_VERSION }}
-          name: "NeXiS Worker ${{ env.NEXIS_VERSION }}"
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: "NeXiS Worker v${{ steps.ver.outputs.version }}"
           body_path: notes.md
           files: |
             nexis-worker-${{ steps.ver.outputs.version }}.apk
             desktopApp/build/compose/binaries/main/deb/nexis-worker-desktop_${{ steps.ver.outputs.version }}_amd64.deb
           draft: false
-          prerelease: ${{ contains(env.NEXIS_VERSION, '-') }}
+          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
 
-  # ── Windows .msi ──────────────────────────────────────────────────────────────
+  # ── Windows .msi ──────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Build Windows .msi
     runs-on: windows-latest
@@ -166,9 +172,17 @@ jobs:
         id: ver
         shell: bash
         run: |
-          V="${{ env.NEXIS_VERSION }}"
-          echo "version=${V#v}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            V="${{ inputs.version }}"
+          else
+            V=$(cat VERSION | tr -d 'v\r\n ')
+          fi
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${V}" >> "$GITHUB_OUTPUT"
           echo "BUILD_TIMESTAMP=$(date +%s)" >> "$GITHUB_ENV"
+          echo "VERSION=${V}" >> "$GITHUB_ENV"
 
       - name: Build Windows MSI
         env:
@@ -179,5 +193,5 @@ jobs:
       - name: Upload MSI to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.NEXIS_VERSION }}
+          tag_name: ${{ steps.ver.outputs.tag }}
           files: desktopApp/build/compose/binaries/main/msi/nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi
