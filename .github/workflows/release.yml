@@ -1,5 +1,5 @@
 # Nexis Worker — Release Pipeline
-# Builds: Android APK + Linux desktop .deb + Windows .msi
+# Builds: Android APK + Linux desktop .deb + Windows .msi + iOS unsigned IPA
 # Triggered on: version tags, VERSION file bump on main, or workflow_dispatch.
 
 name: Release
@@ -111,6 +111,7 @@ jobs:
           | \`nexis-worker-${{ steps.ver.outputs.version }}.apk\` | Android application package |
           | \`nexis-worker-desktop_${{ steps.ver.outputs.version }}_amd64.deb\` | Linux desktop (Debian/Ubuntu) |
           | \`nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi\` | Windows installer |
+          | \`nexis-worker-${{ steps.ver.outputs.version }}.ipa\` | iOS unsigned IPA (sideload via AltStore/Sideloadly) |
 
           ### Install — Android
           \`\`\`
@@ -125,6 +126,12 @@ jobs:
 
           ### Install — Windows
           Run \`nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi\` and follow the installer.
+
+          ### Install — iOS (unsigned IPA)
+          Sideload using [AltStore](https://altstore.io) or [Sideloadly](https://sideloadly.io):
+          1. Download \`nexis-worker-${{ steps.ver.outputs.version }}.ipa\`
+          2. Open AltStore/Sideloadly and drag the IPA onto your connected iPhone/iPad
+          3. Trust the developer certificate in Settings → General → VPN & Device Management
 
           ---
           Part of the [Nexis ecosystem](https://github.com/santiagotoro2023).
@@ -195,3 +202,74 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           files: desktopApp/build/compose/binaries/main/msi/nexis-worker-desktop-${{ steps.ver.outputs.version }}.msi
+
+  # ── iOS unsigned IPA ──────────────────────────────────────────────────────────────────────
+  build-ios:
+    name: Build iOS unsigned IPA
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    needs: build-linux-android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Extract version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            V="${{ inputs.version }}"
+          else
+            V=$(cat VERSION | tr -d 'v \n')
+          fi
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Kotlin/Native XCFramework
+        run: ./gradlew :iosApp:assembleReleaseXCFramework --no-daemon
+
+      - name: Copy XCFramework into Xcode search path
+        run: |
+          mkdir -p iosApp/build/xcode-frameworks/Release/iphoneos
+          cp -R iosApp/build/XCFrameworks/release/ComposeApp.xcframework \
+                iosApp/build/xcode-frameworks/Release/iphoneos/
+
+      - name: Build .app archive (no signing)
+        run: |
+          xcodebuild archive \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath /tmp/iosApp.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+
+      - name: Package unsigned IPA
+        run: |
+          APP=$(find /tmp/iosApp.xcarchive/Products -name '*.app' | head -1)
+          mkdir -p /tmp/Payload
+          cp -R "$APP" /tmp/Payload/
+          cd /tmp && zip -r "nexis-worker-${{ steps.ver.outputs.version }}.ipa" Payload/
+
+      - name: Upload IPA to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          files: /tmp/nexis-worker-${{ steps.ver.outputs.version }}.ipa
