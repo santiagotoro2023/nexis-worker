@@ -240,7 +240,7 @@ jobs:
           echo "tag=v${V}" >> "$GITHUB_OUTPUT"
 
       - name: Build Kotlin/Native XCFramework
-        run: ./gradlew :iosApp:assembleReleaseXCFramework --no-daemon
+        run: gradle :iosApp:assembleComposeAppReleaseXCFramework --no-daemon
 
       - name: Copy XCFramework into Xcode search path
         run: |
