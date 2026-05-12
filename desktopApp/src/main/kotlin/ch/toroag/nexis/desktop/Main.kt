@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import java.awt.Point
@@ -180,7 +181,7 @@ fun main() = application {
                         )
                         TitleBarBtn("─") { windowState.isMinimized = true }
                         val isMaximized = windowState.placement == WindowPlacement.Maximized
-                        TitleBarBtn(if (isMaximized) "⒐" else "□") {
+                        TitleBarBtn(if (isMaximized) "⒙" else "□") {
                             windowState.placement =
                                 if (isMaximized) WindowPlacement.Floating else WindowPlacement.Maximized
                         }
@@ -268,9 +269,10 @@ private fun BoxScope.ResizeHandles(windowState: androidx.compose.ui.window.Windo
                     val newW = (windowState.size.width - delta).coerceAtLeast(600.dp)
                     if (newW > 600.dp) {
                         windowState.size = windowState.size.copy(width = newW)
-                        windowState.position = windowState.position.copy(
-                            x = windowState.position.x + delta,
-                        )
+                        val pos = windowState.position
+                        if (pos is WindowPosition.Absolute) {
+                            windowState.position = WindowPosition(pos.x + delta, pos.y)
+                        }
                     }
                 }
             }
@@ -286,9 +288,10 @@ private fun BoxScope.ResizeHandles(windowState: androidx.compose.ui.window.Windo
                     val newH = (windowState.size.height - delta).coerceAtLeast(400.dp)
                     if (newH > 400.dp) {
                         windowState.size = windowState.size.copy(height = newH)
-                        windowState.position = windowState.position.copy(
-                            y = windowState.position.y + delta,
-                        )
+                        val pos = windowState.position
+                        if (pos is WindowPosition.Absolute) {
+                            windowState.position = WindowPosition(pos.x, pos.y + delta)
+                        }
                     }
                 }
             }
