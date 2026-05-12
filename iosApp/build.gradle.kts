@@ -8,6 +8,7 @@ plugins {
 }
 
 kotlin {
+    val xcf = XCFramework("ComposeApp")
     listOf(
         iosX64(),
         iosArm64(),
@@ -16,6 +17,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            xcf.add(this)
         }
     }
 

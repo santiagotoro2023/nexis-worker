@@ -239,16 +239,7 @@ jobs:
           echo "version=${V}" >> "$GITHUB_OUTPUT"
           echo "tag=v${V}" >> "$GITHUB_OUTPUT"
 
-      - name: Build Kotlin/Native XCFramework
-        run: gradle :iosApp:assembleComposeAppReleaseXCFramework --no-daemon
-
-      - name: Copy XCFramework into Xcode search path
-        run: |
-          mkdir -p iosApp/build/xcode-frameworks/Release/iphoneos
-          cp -R iosApp/build/XCFrameworks/release/ComposeApp.xcframework \
-                iosApp/build/xcode-frameworks/Release/iphoneos/
-
-      - name: Build .app archive (no signing)
+      - name: Build .app archive
         run: |
           xcodebuild archive \
             -project iosApp/iosApp.xcodeproj \
