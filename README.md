@@ -1,6 +1,6 @@
 # NeXiS Worker
 
-![Version](https://img.shields.io/badge/version-1.0.18-blue) ![Android](https://img.shields.io/badge/Android-8.0%2B-green) ![Linux](https://img.shields.io/badge/Linux-.deb-orange) ![Windows](https://img.shields.io/badge/Windows-.msi-blue)
+![Version](https://img.shields.io/badge/version-1.0.20-blue) ![Android](https://img.shields.io/badge/Android-8.0%2B-green) ![Linux](https://img.shields.io/badge/Linux-.deb-orange) ![Windows](https://img.shields.io/badge/Windows-.msi-blue)
 
 Client applications for the NeXiS ecosystem. Available for Android (8.0+), Linux desktop, and Windows. Connects to a NeXiS Controller to provide a portable AI assistant interface, remote device control, and VM management from anywhere. All three targets share the same networking layer and register as managed devices with the Controller on first connection.
 
@@ -48,7 +48,7 @@ Workers connect directly to the Controller. All paired Hypervisor nodes are acce
 ## Supported Platforms
 
 | Platform | Format | Requirements |
-|----------|--------|--------------|
+|----------|--------|------|
 | Android | APK (sideload) | Android 8.0+ (API 26+) |
 | Linux desktop | `.deb` | Debian 12 / Ubuntu 22.04+ · x86_64 |
 | Windows desktop | `.msi` | Windows 10+ · x86_64 |
@@ -63,6 +63,7 @@ Workers connect directly to the Controller. All paired Hypervisor nodes are acce
 | Desktop app (Linux + Windows) | Kotlin · **Compose Multiplatform** · Material 3 |
 | Build system | Gradle 8.9 · AGP 8.7 · `compileSdk 35` · `minSdk 26` |
 | Desktop packaging | `targetFormats(Deb, Msi)` in Compose Multiplatform Gradle config |
+| Desktop window | Custom undecorated window with title bar · maximize/restore toggle · drag-to-resize edges · custom app icon |
 | Networking | OkHttp · custom TOFU TLS trust manager (accepts self-signed certs) |
 | Local storage | Android DataStore (Android) / JVM preferences (desktop) |
 | Realtime | Server-Sent Events (SSE) for conversation sync and notifications |
@@ -142,10 +143,10 @@ After login, the worker fetches the authenticated user's role from the Controlle
 
 | Role | Available Tabs |
 |------|----------------|
-| **admin** | Chat, Remote, Memories, History, Schedules, Devices, Hypervisor, **Commands**, Settings |
+| **admin** | Chat, Remote, Memories, History, Schedules, Devices, Hypervisor, **Commands**, **Personality**, Settings |
 | **user** | Chat, Remote, Memories, History, Schedules, Devices, Hypervisor, Settings |
 
-The **Commands** tab is admin-only. It lists all 13 built-in worker commands the device responds to, providing admins full visibility into the device's capabilities.
+The **Commands** and **Personality** tabs are admin-only. Commands shows all built-in Worker capabilities and Controller-defined custom tools. Personality allows live editing of the AI's name, style, and base system prompt.
 
 ---
 
@@ -160,7 +161,8 @@ The **Commands** tab is admin-only. It lists all 13 built-in worker commands the
 | **Schedules** | View and trigger scheduled tasks defined on the Controller |
 | **Devices** | All registered Worker devices; each card has a **SCREEN** button for noVNC remote access |
 | **Hypervisor** | VMs and containers across all paired Hypervisor nodes; start/stop/reboot controls |
-| **Commands** | *Admin only* — lists all 13 built-in commands this device responds to |
+| **Commands** | *Admin only* — lists built-in Worker commands plus Controller-defined custom tools; toggle custom tools on/off directly from the app |
+| **Personality** | *Admin only* — edit the AI name, style/tone, base system prompt, and custom instructions; changes apply immediately to all conversations |
 | **Settings** | Controller URL, credentials, TLS preferences, voice config |
 
 ---

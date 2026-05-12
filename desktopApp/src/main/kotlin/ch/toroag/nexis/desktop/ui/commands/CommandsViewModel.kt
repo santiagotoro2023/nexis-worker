@@ -1,27 +1,124 @@
 package ch.toroag.nexis.desktop.ui.commands
 
-import androidx.lifecycle.ViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import ch.toroag.nexis.desktop.data.PreferencesRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import java.security.cert.X509Certificate
 
 data class WorkerCommand(
     val name:        String,
     val description: String,
     val isBuiltin:   Boolean,
+    val id:          Int     = -1,
+    val enabled:     Boolean = true,
+    val commandType: String  = "",
 )
 
-class CommandsViewModel : ViewModel() {
-    val builtinCommands = listOf(
-        WorkerCommand("shell_exec",     "Execute a shell command on this device",                              true),
-        WorkerCommand("screenshot",     "Capture a screenshot and send it to the controller",                  true),
-        WorkerCommand("start_vnc",      "Start VNC server (x11vnc / TightVNC / ARDAgent) for remote screen",  true),
-        WorkerCommand("stop_vnc",       "Stop VNC server on this device",                                      true),
-        WorkerCommand("lock_screen",    "Lock the desktop session",                                            true),
-        WorkerCommand("notify",         "Show a desktop notification",                                         true),
-        WorkerCommand("open_url",       "Open a URL in the default browser",                                   true),
-        WorkerCommand("set_volume",     "Set system volume (0-100)",                                           true),
-        WorkerCommand("sleep",          "Put the device to sleep",                                             true),
-        WorkerCommand("wake_on_lan",    "Send WoL magic packet to a MAC address",                              true),
-        WorkerCommand("probe",          "Run system diagnostics and return report",                            true),
-        WorkerCommand("file_read",      "Read a file and return its contents",                                 true),
-        WorkerCommand("file_write",     "Write content to a file",                                             true),
-    )
+class CommandsViewModel {
+    private val prefs   = PreferencesRepository.get()
+    private val baseUrl: String
+    private val token:   String
+
+    var builtinCommands by mutableStateOf<List<WorkerCommand>>(emptyList())
+    var customCommands  by mutableStateOf<List<WorkerCommand>>(emptyList())
+    var isLoading       by mutableStateOf(false)
+    var statusMessage   by mutableStateOf("")
+    var hasError        by mutableStateOf(false)
+
+    private val trustAll: SSLContext by lazy {
+        val tm = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(c: Array<X509Certificate>, a: String) {}
+            override fun checkServerTrusted(c: Array<X509Certificate>, a: String) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        })
+        SSLContext.getInstance("TLS").also { it.init(null, tm, null) }
+    }
+
+    init {
+        runBlocking {
+            baseUrl = prefs.serverUrl.first().trimEnd('/')
+            token   = prefs.token.first()
+        }
+        load()
+    }
+
+    fun load() {
+        CoroutineScope(Dispatchers.IO).launch {
+            isLoading = true; hasError = false; statusMessage = ""
+            try {
+                val url  = URL("$baseUrl/api/tools")
+                val conn = (if (url.protocol == "https")
+                    (url.openConnection() as HttpsURLConnection).also { it.sslSocketFactory = trustAll.socketFactory }
+                else url.openConnection() as HttpURLConnection).also {
+                    it.setRequestProperty("Authorization", "Bearer $token")
+                    it.connectTimeout = 8_000; it.readTimeout = 8_000
+                }
+                if (conn.responseCode == 200) {
+                    val obj     = JSONObject(conn.inputStream.bufferedReader().readText())
+                    val builtIn = obj.optJSONArray("builtin")
+                    val custom  = obj.optJSONArray("custom")
+                    builtinCommands = (0 until (builtIn?.length() ?: 0)).map { i ->
+                        val item = builtIn!!.getJSONObject(i)
+                        WorkerCommand(item.getString("name"), item.getString("description"), true)
+                    }
+                    customCommands = (0 until (custom?.length() ?: 0)).map { i ->
+                        val item = custom!!.getJSONObject(i)
+                        WorkerCommand(
+                            name        = item.getString("name"),
+                            description = item.getString("description"),
+                            isBuiltin   = false,
+                            id          = item.getInt("id"),
+                            enabled     = item.getBoolean("enabled"),
+                            commandType = item.optString("command_type", ""),
+                        )
+                    }
+                } else {
+                    hasError = true; statusMessage = "Failed to load (${conn.responseCode})."
+                }
+            } catch (e: Exception) {
+                hasError = true; statusMessage = "Load failed: ${e.message}"
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun setEnabled(id: Int, enabled: Boolean) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val payload = JSONObject().apply {
+                    put("action",  if (enabled) "enable" else "disable")
+                    put("tool_id", id)
+                }.toString().toByteArray()
+                val url  = URL("$baseUrl/api/tools")
+                val conn = (if (url.protocol == "https")
+                    (url.openConnection() as HttpsURLConnection).also { it.sslSocketFactory = trustAll.socketFactory }
+                else url.openConnection() as HttpURLConnection).also {
+                    it.requestMethod = "POST"; it.doOutput = true
+                    it.setRequestProperty("Content-Type",  "application/json")
+                    it.setRequestProperty("Authorization", "Bearer $token")
+                    it.connectTimeout = 8_000; it.readTimeout = 8_000
+                }
+                conn.outputStream.write(payload)
+                if (conn.responseCode == 200) {
+                    customCommands = customCommands.map {
+                        if (it.id == id) it.copy(enabled = enabled) else it
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+    }
 }
