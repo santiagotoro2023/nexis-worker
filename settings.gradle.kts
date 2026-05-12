@@ -19,3 +19,4 @@ dependencyResolutionManagement {
 rootProject.name = "nexis-worker"
 include(":app")
 include(":desktopApp")
+include(":iosApp")
