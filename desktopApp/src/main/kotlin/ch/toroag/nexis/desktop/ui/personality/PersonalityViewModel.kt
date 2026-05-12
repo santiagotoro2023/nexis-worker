@@ -43,7 +43,7 @@ class PersonalityViewModel {
         var url = ""
         var tok = ""
         runBlocking {
-            url = prefs.serverUrl.first().trimEnd('/')
+            url = prefs.baseUrl.first().trimEnd('/')
             tok = prefs.token.first()
         }
         baseUrl = url
