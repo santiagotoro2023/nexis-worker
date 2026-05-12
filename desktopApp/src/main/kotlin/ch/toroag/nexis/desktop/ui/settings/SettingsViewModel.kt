@@ -91,8 +91,8 @@ class SettingsViewModel : AutoCloseable {
         scope.launch {
             val username = prefs.username.first().ifBlank { "creator" }
             runCatching { api.getToken(baseUrlCurrent, username, password) }
-                .onSuccess { token ->
-                    prefs.saveCredentials(baseUrlCurrent, token, username)
+                .onSuccess { result ->
+                    prefs.saveCredentials(baseUrlCurrent, result.token, username)
                     _status.value = "Re-authenticated successfully"
                     onDone()
                 }
