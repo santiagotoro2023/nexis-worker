@@ -26,7 +26,7 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
-            implementation(compose.material.iconsExtended)
+            implementation("org.jetbrains.compose.material:material-icons-extended")
             implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
