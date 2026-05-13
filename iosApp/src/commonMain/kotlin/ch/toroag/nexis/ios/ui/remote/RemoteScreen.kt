@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package ch.toroag.nexis.ios.ui.remote
 
 import androidx.compose.foundation.layout.*
@@ -15,7 +17,17 @@ import ch.toroag.nexis.ios.data.PreferencesRepository
 import kotlinx.coroutines.launch
 
 private data class RA(val label: String, val action: String, val icon: ImageVector)
-private val actions = listOf(RA("Screenshot","screenshot",Icons.Default.Screenshot),RA("Lock","lock",Icons.Default.Lock),RA("Sleep","sleep",Icons.Default.DarkMode),RA("Shutdown","shutdown",Icons.Default.PowerSettingsNew),RA("Reboot","reboot",Icons.Default.RestartAlt),RA("Mute","mute",Icons.Default.VolumeOff),RA("Unmute","unmute",Icons.Default.VolumeUp),RA("Vol +","volume_up",Icons.Default.Add),RA("Vol -","volume_down",Icons.Default.Remove))
+private val actions = listOf(
+    RA("Screenshot", "screenshot", Icons.Default.CameraAlt),
+    RA("Lock",       "lock",       Icons.Default.Lock),
+    RA("Sleep",      "sleep",      Icons.Default.DarkMode),
+    RA("Shutdown",   "shutdown",   Icons.Default.PowerSettingsNew),
+    RA("Reboot",     "reboot",     Icons.Default.RestartAlt),
+    RA("Mute",       "mute",       Icons.Default.VolumeOff),
+    RA("Unmute",     "unmute",     Icons.Default.VolumeUp),
+    RA("Vol +",      "volume_up",  Icons.Default.Add),
+    RA("Vol -",      "volume_down",Icons.Default.Remove),
+)
 
 @Composable
 fun RemoteScreen(prefs: PreferencesRepository) {

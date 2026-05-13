@@ -6,14 +6,17 @@ import com.russhwolf.settings.set
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class PreferencesRepository(private val settings: Settings = Settings()) {
-    private val K_BASE_URL  = "base_url"
-    private val K_TOKEN     = "bearer_token"
-    private val K_USERNAME  = "username"
-    private val K_ROLE      = "role"
-    private val K_HV_URL    = "hv_url"
-    private val K_HV_TOKEN  = "hv_token"
-    private val K_DEVICE_ID = "device_id"
+expect fun createSettings(): Settings
+
+object PreferencesRepository {
+    private val settings: Settings = createSettings()
+    private const val K_BASE_URL  = "base_url"
+    private const val K_TOKEN     = "bearer_token"
+    private const val K_USERNAME  = "username"
+    private const val K_ROLE      = "role"
+    private const val K_HV_URL    = "hv_url"
+    private const val K_HV_TOKEN  = "hv_token"
+    private const val K_DEVICE_ID = "device_id"
 
     private val _baseUrl  = MutableStateFlow(settings.get(K_BASE_URL,  ""))
     private val _token    = MutableStateFlow(settings.get(K_TOKEN,     ""))
@@ -56,11 +59,7 @@ class PreferencesRepository(private val settings: Settings = Settings()) {
         return newId
     }
 
-    companion object {
-        @Volatile private var instance: PreferencesRepository? = null
-        fun get(): PreferencesRepository =
-            instance ?: synchronized(this) { instance ?: PreferencesRepository().also { instance = it } }
-    }
+    fun get() = this
 }
 
 expect fun generateUuid(): String

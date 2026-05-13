@@ -1,6 +1,8 @@
 package ch.toroag.nexis.ios.data
 
 import io.ktor.client.*
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -11,7 +13,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 
 class NexisApiService {
-    private val client = HttpClient { expectSuccess = false }
+    private val client = HttpClient {
+        expectSuccess = false
+        install(HttpTimeout)
+    }
 
     data class TokenResult(val token: String, val role: String)
     data class ModelInfo(val key: String, val label: String, val desc: String, val installed: Boolean, val current: Boolean)
@@ -46,7 +51,7 @@ class NexisApiService {
             val resp = client.post("$baseUrl/api/chat") {
                 contentType(ContentType.Application.Json)
                 header("Authorization", "Bearer $token")
-                setBody("""{"msg":"${msg.esc}"}""")
+                setBody("""{"msg":"${msg.esc}"}""") 
                 timeout { requestTimeoutMillis = 300_000 }
             }
             if (resp.status.value == 401) { onError("401"); return@withContext }
@@ -188,7 +193,12 @@ class NexisApiService {
 
     suspend fun desktopAction(baseUrl: String, token: String, action: String, arg: String = "", deviceId: String = ""): String = runCatching {
         val obj = buildJsonObject { put("action", action); put("arg", arg); if (deviceId.isNotEmpty()) put("device_id", deviceId) }
-        val resp = client.post("$baseUrl/api/desktop") { contentType(ContentType.Application.Json); header("Authorization", "Bearer $token"); setBody(obj.toString()); timeout { requestTimeoutMillis = 60_000 } }
+        val resp = client.post("$baseUrl/api/desktop") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer $token")
+            setBody(obj.toString())
+            timeout { requestTimeoutMillis = 60_000 }
+        }
         if (!resp.status.isSuccess()) return "(error ${resp.status.value})"
         Json.parseToJsonElement(resp.bodyAsText()).jsonObject["result"]?.jsonPrimitive?.content ?: "(no result)"
     }.getOrDefault("(error)")

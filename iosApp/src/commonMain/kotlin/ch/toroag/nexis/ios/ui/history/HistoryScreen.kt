@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package ch.toroag.nexis.ios.ui.history
 
 import androidx.compose.foundation.layout.*
@@ -34,7 +36,7 @@ fun HistoryScreen(prefs: PreferencesRepository) {
                             Text(session.started, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         }
                         Row {
-                            IconButton(onClick = { scope.launch { api.loadHistorySession(baseUrl, token, session.sessionId) } }) { Icon(Icons.Default.RestoreFromTrash, "Load") }
+                            IconButton(onClick = { scope.launch { api.loadHistorySession(baseUrl, token, session.sessionId) } }) { Icon(Icons.Default.Restore, "Load") }
                             IconButton(onClick = { scope.launch { api.deleteHistorySession(baseUrl, token, session.sessionId); load() } }) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
                         }
                     }

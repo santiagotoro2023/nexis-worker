@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package ch.toroag.nexis.ios.ui.personality
 
 import androidx.compose.foundation.layout.*
