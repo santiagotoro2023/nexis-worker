@@ -58,22 +58,30 @@ val generateWindowsIco by tasks.registering {
     inputs.file(pngFile)
     outputs.file(icoFile)
     doLast {
-        // Embed PNG directly in ICO container — no AWT/ImageIO needed.
-        // ICO format supports embedded PNG images since Windows Vista.
-        // ICONDIRENTRY width/height byte value of 0 encodes 256 per the ICO spec.
-        val pngBytes = pngFile.readBytes()
-        val buf = java.io.ByteArrayOutputStream(22 + pngBytes.size)
-        fun le16(v: Int) { buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF) }
-        fun le32(v: Int) { buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF); buf.write((v shr 16) and 0xFF); buf.write((v shr 24) and 0xFF) }
-        // ICONDIR: reserved=0, type=1 (icon), count=1
-        le16(0); le16(1); le16(1)
-        // ICONDIRENTRY: width=256(0), height=256(0), colorCount=0, reserved=0, planes=1, bpp=32, size, offset
-        buf.write(0); buf.write(0); buf.write(0); buf.write(0)
-        le16(1); le16(32)
-        le32(pngBytes.size)
-        le32(22)  // image offset = 6 (ICONDIR) + 16 (ICONDIRENTRY)
-        buf.write(pngBytes, 0, pngBytes.size)  // 3-arg overload avoids ambiguity
-        icoFile.get().asFile.also { it.parentFile.mkdirs() }.writeBytes(buf.toByteArray())
+        // Pure Kotlin stdlib — no java.io / java.awt imports needed in Gradle DSL.
+        // ICO format supports embedded PNG since Windows Vista; width/height byte=0 means 256.
+        val png = pngFile.readBytes()
+        val ico = ByteArray(22 + png.size)
+        fun le16(off: Int, v: Int) {
+            ico[off]   = (v         and 0xFF).toByte()
+            ico[off+1] = ((v shr 8) and 0xFF).toByte()
+        }
+        fun le32(off: Int, v: Int) {
+            ico[off]   = (v          and 0xFF).toByte()
+            ico[off+1] = ((v shr  8) and 0xFF).toByte()
+            ico[off+2] = ((v shr 16) and 0xFF).toByte()
+            ico[off+3] = ((v shr 24) and 0xFF).toByte()
+        }
+        // ICONDIR (6 bytes): reserved=0, type=1, count=1
+        le16(0, 0); le16(2, 1); le16(4, 1)
+        // ICONDIRENTRY (16 bytes): w=256(0), h=256(0), colors=0, rsvd=0, planes=1, bpp=32, size, offset=22
+        ico[6] = 0; ico[7] = 0; ico[8] = 0; ico[9] = 0
+        le16(10, 1); le16(12, 32)
+        le32(14, png.size)
+        le32(18, 22)
+        // Embed PNG data starting at byte 22
+        png.copyInto(ico, 22)
+        icoFile.get().asFile.also { it.parentFile.mkdirs() }.writeBytes(ico)
     }
 }
 
