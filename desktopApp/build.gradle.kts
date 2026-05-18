@@ -13,7 +13,7 @@ kotlin {
     jvmToolchain(21)
 }
 
-// ── Embed BUILD_TIMESTAMP at compile time ───────────────────────────────────────────────────
+// ── Embed BUILD_TIMESTAMP at compile time ───────────────────────────────────────────
 val buildTimestamp: String = System.getenv("BUILD_TIMESTAMP") ?: "0"
 val appVersion: String = System.getenv("VERSION") ?: "1.0.0"
 
@@ -39,7 +39,7 @@ kotlin.sourceSets.main {
     kotlin.srcDir(generateBuildConfig)
 }
 
-// ── Dependencies ────────────────────────────────────────────────────────────────────────
+// ── Dependencies ──────────────────────────────────────────────────────────────────────────────────
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -51,47 +51,33 @@ dependencies {
     implementation("org.json:json:20240303")
 }
 
-// ── Generate Windows .ico from icon.png (required for MSI installer icon) ──────────────────────
+// ── Generate Windows .ico from icon.png (required for MSI installer icon) ──────────────────
 val generateWindowsIco by tasks.registering {
     val pngFile = file("src/main/resources/icon.png")
     val icoFile = layout.buildDirectory.file("generated/icon.ico")
     inputs.file(pngFile)
     outputs.file(icoFile)
     doLast {
-        val outputFile = icoFile.get().asFile
-        outputFile.parentFile.mkdirs()
-        val img = javax.imageio.ImageIO.read(pngFile)
-        // Scale to 256x256 for ICO
-        val scaled = java.awt.image.BufferedImage(256, 256, java.awt.image.BufferedImage.TYPE_INT_ARGB)
-        val g2d = scaled.createGraphics()
-        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                             java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC)
-        g2d.drawImage(img, 0, 0, 256, 256, null)
-        g2d.dispose()
-        // Write ICO format
-        outputFile.outputStream().use { out ->
-            val bos = java.io.ByteArrayOutputStream()
-            javax.imageio.ImageIO.write(scaled, "png", bos)
-            val pngData = bos.toByteArray()
-            // ICO header: reserved=0, type=1 (icon), count=1
-            fun writeShort(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
-            fun writeInt(v: Int)   { out.write(v and 0xFF); out.write((v shr 8) and 0xFF); out.write((v shr 16) and 0xFF); out.write((v shr 24) and 0xFF) }
-            writeShort(0); writeShort(1); writeShort(1) // ICONDIR
-            // ICONDIRENTRY: width, height, colorCount, reserved, planes, bitCount, sizeInBytes, offset
-            out.write(0) // width=256 encoded as 0
-            out.write(0) // height=256 encoded as 0
-            out.write(0) // colorCount
-            out.write(0) // reserved
-            writeShort(1) // planes
-            writeShort(32) // bitCount
-            writeInt(pngData.size)
-            writeInt(22) // offset = 6 (ICONDIR) + 16 (ICONDIRENTRY)
-            out.write(pngData)
-        }
+        // Embed PNG directly in ICO container — no AWT/ImageIO needed.
+        // ICO format supports embedded PNG images since Windows Vista.
+        // ICONDIRENTRY width/height byte value of 0 encodes 256 per the ICO spec.
+        val pngBytes = pngFile.readBytes()
+        val buf = java.io.ByteArrayOutputStream(22 + pngBytes.size)
+        fun le16(v: Int) { buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF) }
+        fun le32(v: Int) { buf.write(v and 0xFF); buf.write((v shr 8) and 0xFF); buf.write((v shr 16) and 0xFF); buf.write((v shr 24) and 0xFF) }
+        // ICONDIR: reserved=0, type=1 (icon), count=1
+        le16(0); le16(1); le16(1)
+        // ICONDIRENTRY: width=256(0), height=256(0), colorCount=0, reserved=0, planes=1, bpp=32, size, offset
+        buf.write(0); buf.write(0); buf.write(0); buf.write(0)
+        le16(1); le16(32)
+        le32(pngBytes.size)
+        le32(22)  // image offset = 6 (ICONDIR) + 16 (ICONDIRENTRY)
+        buf.write(pngBytes, 0, pngBytes.size)  // 3-arg overload avoids ambiguity
+        icoFile.get().asFile.also { it.parentFile.mkdirs() }.writeBytes(buf.toByteArray())
     }
 }
 
-// ── Native distributions (.deb) ─────────────────────────────────────────────────────────────────────────────
+// ── Native distributions (.deb) ────────────────────────────────────────────────────────────────────────────────────────
 compose.desktop {
     application {
         mainClass = "ch.toroag.nexis.desktop.MainKt"
@@ -128,7 +114,7 @@ compose.desktop {
 
 tasks.named("packageMsi") { dependsOn(generateWindowsIco) }
 
-// ── Inject Depends: into the generated .deb ──────────────────────────────────────────────────────
+// ── Inject Depends: into the generated .deb ──────────────────────────────────────────────
 val debRuntimeDeps = "playerctl, libnotify-bin, xdg-utils, xclip"
 
 tasks.register("packageDebWithDeps") {
