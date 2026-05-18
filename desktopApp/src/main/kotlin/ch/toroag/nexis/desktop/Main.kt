@@ -37,6 +37,8 @@ import ch.toroag.nexis.desktop.ui.commands.CommandsScreen
 import ch.toroag.nexis.desktop.ui.commands.CommandsViewModel
 import ch.toroag.nexis.desktop.ui.devices.DevicesScreen
 import ch.toroag.nexis.desktop.ui.devices.DevicesViewModel
+import ch.toroag.nexis.desktop.ui.devices.VncTarget
+import ch.toroag.nexis.desktop.ui.devices.VncViewerWindow
 import ch.toroag.nexis.desktop.ui.hypervisor.HypervisorScreen
 import ch.toroag.nexis.desktop.ui.hypervisor.HypervisorViewModel
 import ch.toroag.nexis.desktop.ui.history.HistoryScreen
@@ -331,6 +333,15 @@ private fun MainShell(onLogout: () -> Unit) {
     val personalityVm   = remember { PersonalityViewModel() }
 
     var currentScreen by remember { mutableStateOf(Screen.Chat) }
+
+    // Observe vncTarget from devicesVm and open VncViewerWindow when set
+    val vncTarget by devicesVm.vncTarget.collectAsState()
+    vncTarget?.let { target ->
+        VncViewerWindow(
+            target = target,
+            onClose = { devicesVm.clearVncTarget() },
+        )
+    }
 
     Row(Modifier.fillMaxSize().background(NxBg)) {
 

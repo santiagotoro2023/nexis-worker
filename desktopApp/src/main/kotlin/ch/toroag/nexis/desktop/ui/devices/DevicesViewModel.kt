@@ -33,6 +33,9 @@ class DevicesViewModel : AutoCloseable {
     private val _passwords    = MutableStateFlow<Map<String, String>>(emptyMap())
     val passwords: StateFlow<Map<String, String>> = _passwords
 
+    private val _vncTarget = MutableStateFlow<VncTarget?>(null)
+    val vncTarget: StateFlow<VncTarget?> = _vncTarget
+
     private var baseUrl = ""
     private var token   = ""
 
@@ -107,19 +110,27 @@ class DevicesViewModel : AutoCloseable {
             val baseUrl = prefs.baseUrl.first()
             val result  = api.requestVncSession(baseUrl, token, deviceId)
             if (result.ok && result.viewUrl.isNotEmpty()) {
-                val fullUrl = "$baseUrl${result.viewUrl}"
-                // Open in default browser
                 withContext(Dispatchers.Main) {
-                    try {
-                        java.awt.Desktop.getDesktop().browse(java.net.URI(fullUrl))
-                    } catch (e: Exception) {
-                        // Fallback: try xdg-open on Linux
-                        try { Runtime.getRuntime().exec(arrayOf("xdg-open", fullUrl)) } catch (_: Exception) {}
-                    }
+                    _vncTarget.value = VncTarget(
+                        deviceId = deviceId,
+                        hostname = result.hostname,
+                        viewUrl  = result.viewUrl,
+                        wsPort   = result.wsPort,
+                        baseUrl  = baseUrl,
+                        token    = token,
+                    )
+                }
+            } else {
+                // Show error as probe output
+                withContext(Dispatchers.Main) {
+                    _probeOutput.value = "VNC error: ${result.error ?: "session start failed"}"
                 }
             }
-            // If result.error is not null, it could be shown as a snackbar — for simplicity, log it
         }
+    }
+
+    fun clearVncTarget() {
+        _vncTarget.value = null
     }
 
     fun clearProbe() {
